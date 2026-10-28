@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: social-hub
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DB_PATH
+        value: /tmp/data.db
+      - key: UPLOAD_DIR
+        value: /tmp/uploads

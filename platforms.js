@@ -1,0 +1,48 @@
+// Platform adapters.
+// Each adapter has: publish({ account, caption, mediaPath, mediaType }) -> { url }
+// "demo" mode simulates a post. Real mode is added later when OAuth keys are ready.
+
+const LIMITS = {
+  twitter: 280,
+  instagram: 2200,
+  facebook: 63206,
+  linkedin: 3000,
+  youtube: 5000,
+};
+
+const PLATFORMS = Object.keys(LIMITS);
+
+const NEEDS_MEDIA = {
+  instagram: true,
+  youtube: true,
+};
+
+function validate(platform, caption, mediaPath, mediaType) {
+  if (!PLATFORMS.includes(platform)) return `Unknown platform: ${platform}`;
+  if ((caption || '').length > LIMITS[platform]) {
+    return `${platform} caption too long (max ${LIMITS[platform]})`;
+  }
+  if (NEEDS_MEDIA[platform] && !mediaPath) return `${platform} needs an image or video`;
+  if (platform === 'youtube' && mediaType !== 'video') return 'youtube needs a video';
+  return null;
+}
+
+async function demoPublish({ account, caption }) {
+  await new Promise((r) => setTimeout(r, 150));
+  // Simulate one failure on request, to test retry/history
+  if ((caption || '').includes('[fail]')) throw new Error('Simulated platform error');
+  return { url: `https://demo.local/${account.platform}/${account.handle || account.id}/${Date.now()}` };
+}
+
+const adapters = {};
+for (const p of PLATFORMS) {
+  adapters[p] = {
+    async publish(args) {
+      if (args.account.mode === 'demo') return demoPublish(args);
+      // TODO real mode: implement per platform with official API + OAuth tokens
+      throw new Error(`${p} live mode not connected yet`);
+    },
+  };
+}
+
+module.exports = { PLATFORMS, LIMITS, NEEDS_MEDIA, validate, adapters };
