@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Social Hub</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<div id="auth" class="center hidden">
+  <div class="card narrow">
+    <h1>Social Hub</h1>
+    <p class="muted">One post. All your accounts.</p>
+    <div class="tabs">
+      <button id="tab-login" class="tab active">Login</button>
+      <button id="tab-signup" class="tab">Sign up</button>
+    </div>
+    <form id="auth-form">
+      <input id="a-name" placeholder="Name" class="hidden">
+      <input id="a-email" type="email" placeholder="Email" required>
+      <input id="a-pass" type="password" placeholder="Password (min 8)" required>
+      <button class="primary" type="submit" id="a-submit">Login</button>
+      <div id="a-err" class="err"></div>
+    </form>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+  <header>
+    <strong>Social Hub</strong>
+    <nav>
+      <button data-view="compose" class="nav active">New post</button>
+      <button data-view="history" class="nav">History</button>
+      <button data-view="accounts" class="nav">Accounts</button>
+      <button data-view="admin" class="nav hidden" id="nav-admin">Clients</button>
+    </nav>
+    <span class="grow"></span>
+    <span id="who" class="muted"></span>
+    <button id="logout">Logout</button>
+  </header>
+
+  <main>
+    <section id="view-compose">
+      <div class="card">
+        <h2>New post</h2>
+        <label>Main text</label>
+        <textarea id="c-text" rows="4" placeholder="Write your post..."></textarea>
+
+        <label>Image or video</label>
+        <input id="c-media" type="file" accept="image/*,video/*">
+
+        <label>Post to</label>
+        <div id="c-accounts" class="chips"></div>
+        <div id="c-empty" class="muted hidden">No accounts yet. Add some in the Accounts tab.</div>
+
+        <div id="c-captions"></div>
+
+        <label>When</label>
+        <div class="row">
+          <label class="inline"><input type="radio" name="when" value="now" checked> Now</label>
+          <label class="inline"><input type="radio" name="when" value="later"> Schedule</label>
+          <input id="c-when" type="datetime-local" class="hidden">
+        </div>
+
+        <button id="c-send" class="primary">Post</button>
+        <div id="c-msg" class="muted"></div>
+      </div>
+    </section>
+
+    <section id="view-history" class="hidden">
+      <div class="card">
+        <h2>History</h2>
+        <div id="h-list"></div>
+      </div>
+    </section>
+
+    <section id="view-accounts" class="hidden">
+      <div class="card">
+        <h2>Accounts</h2>
+        <p class="muted">Demo mode: posts are simulated. Real connect comes after platform approvals.</p>
+        <div class="row">
+          <select id="ac-platform"></select>
+          <input id="ac-label" placeholder="Name (e.g. Channel 1)">
+          <input id="ac-handle" placeholder="@handle (optional)">
+          <button id="ac-add" class="primary">Add</button>
+        </div>
+        <div id="ac-err" class="err"></div>
+        <div id="ac-list"></div>
+      </div>
+    </section>
+
+    <section id="view-admin" class="hidden">
+      <div class="card">
+        <h2>Clients</h2>
+        <div id="ad-list"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>
