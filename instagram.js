@@ -30,8 +30,10 @@ function authUrl({ redirectUri, state }) {
 async function jsonOrThrow(r) {
   const j = await r.json().catch(() => ({}));
   if (!r.ok || j.error || j.error_message) {
-    const msg = (j.error && (j.error.message || j.error)) || j.error_message || `HTTP ${r.status}`;
-    throw new Error(`Instagram: ${msg}`);
+    const e = j.error || {};
+    const msg = e.error_user_msg || e.message || (typeof j.error === 'string' ? j.error : '') || j.error_message || `HTTP ${r.status}`;
+    const code = e.code ? ` (code ${e.code}${e.error_subcode ? '/' + e.error_subcode : ''})` : '';
+    throw new Error(`Instagram: ${msg}${code}`);
   }
   return j;
 }
@@ -96,7 +98,7 @@ async function publish({ account, caption, mediaUrl, mediaType, mediaPath }) {
   } else {
     params.image_url = mediaUrl;
   }
-  const container = await post(`${igId}/media`, params, token);
+  const container = await post('me/media', params, token);
 
   if (mediaType === 'video') {
     for (let i = 0; i < 40; i++) {
@@ -108,7 +110,7 @@ async function publish({ account, caption, mediaUrl, mediaType, mediaPath }) {
       await sleep(5000);
     }
   }
-  const pub = await post(`${igId}/media_publish`, { creation_id: container.id }, token);
+  const pub = await post('me/media_publish', { creation_id: container.id }, token);
   let url = `https://www.instagram.com/${account.handle || ''}`;
   try {
     const m = await jsonOrThrow(
