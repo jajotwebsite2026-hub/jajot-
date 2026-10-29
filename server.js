@@ -252,6 +252,8 @@ app.get('/auth/instagram/callback', auth, async (req, res) => {
   }
 });
 
+require('./oauth-routes')(app, { auth, db, jwt, JWT_SECRET });
+
 // ---------- admin ----------
 app.get('/api/admin/clients', auth, adminOnly, (req, res) => {
   const rows = db

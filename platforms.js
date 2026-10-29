@@ -2,7 +2,12 @@
 // Each adapter has: publish({ account, caption, mediaPath, mediaType }) -> { url }
 // "demo" mode simulates a post. Real mode is added later when OAuth keys are ready.
 
+const path = require('path');
 const instagram = require('./instagram');
+const facebook = require('./facebook');
+const youtube = require('./youtube');
+
+const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, 'uploads');
 
 const LIMITS = {
   twitter: 280,
@@ -44,6 +49,13 @@ for (const p of PLATFORMS) {
       if (p === 'instagram' && args.account.mode === 'live') {
         const base = instagram.publicBase();
         return instagram.publish({ ...args, mediaUrl: `${base}/pub/${args.mediaPath}` });
+      }
+      if (p === 'facebook' && args.account.mode === 'live') {
+        const mediaUrl = args.mediaPath ? `${instagram.publicBase()}/pub/${args.mediaPath}` : null;
+        return facebook.publish({ ...args, mediaUrl });
+      }
+      if (p === 'youtube' && args.account.mode === 'live') {
+        return youtube.publish({ ...args, filePath: path.join(UPLOAD_DIR, args.mediaPath || '') });
       }
       // TODO real mode: implement per platform with official API + OAuth tokens
       throw new Error(`${p} live mode not connected yet`);

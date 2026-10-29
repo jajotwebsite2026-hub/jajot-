@@ -2,7 +2,7 @@
 (function () {
   const q = new URLSearchParams(location.search);
   if (!q.get('ig')) return;
-  const msg = q.get('ig') === 'ok' ? 'Instagram connected. Account added below (live).' : 'Instagram connect failed: ' + (q.get('msg') || '');
+  const msg = q.get('ig') === 'ok' ? (q.get('msg') || 'Instagram') + ' - connected. Account added below (live).' : 'Connect failed: ' + (q.get('msg') || '');
   history.replaceState(null, '', '/');
   let n = 0;
   const t = setInterval(() => {
