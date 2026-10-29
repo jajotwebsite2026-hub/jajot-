@@ -100,17 +100,28 @@ async function publish({ account, caption, mediaUrl, mediaType, mediaPath }) {
   }
   const container = await post('me/media', params, token);
 
-  if (mediaType === 'video') {
-    for (let i = 0; i < 40; i++) {
-      const st = await jsonOrThrow(
+  // Wait until Instagram has processed the media (images and videos both need it)
+  for (let i = 0; i < 60; i++) {
+    let st = {};
+    try {
+      st = await jsonOrThrow(
         await fetch(`${GRAPH}/${container.id}?${new URLSearchParams({ fields: 'status_code', access_token: token })}`)
       );
-      if (st.status_code === 'FINISHED') break;
-      if (st.status_code === 'ERROR' || st.status_code === 'EXPIRED') throw new Error('Instagram video processing failed');
-      await sleep(5000);
+    } catch {}
+    if (st.status_code === 'FINISHED') break;
+    if (st.status_code === 'ERROR' || st.status_code === 'EXPIRED') throw new Error('Instagram could not process the media (' + st.status_code + ')');
+    await sleep(mediaType === 'video' ? 5000 : 2000);
+  }
+  let pub;
+  for (let i = 0; i < 6; i++) {
+    try {
+      pub = await post('me/media_publish', { creation_id: container.id }, token);
+      break;
+    } catch (e) {
+      if (!/9007|not ready/i.test(e.message) || i === 5) throw e;
+      await sleep(4000);
     }
   }
-  const pub = await post('me/media_publish', { creation_id: container.id }, token);
   let url = `https://www.instagram.com/${account.handle || ''}`;
   try {
     const m = await jsonOrThrow(
