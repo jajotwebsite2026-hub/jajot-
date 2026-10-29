@@ -7,7 +7,7 @@ let running = false;
 async function processPost(post) {
   const targets = db
     .prepare(
-      `SELECT t.*, a.platform, a.handle, a.label, a.mode, a.access_token, a.refresh_token
+      `SELECT t.*, a.platform, a.handle, a.label, a.mode, a.access_token, a.refresh_token, a.external_id, a.token_expires_at
        FROM post_targets t JOIN accounts a ON a.id = t.account_id
        WHERE t.post_id = ? AND t.status IN ('pending','failed') AND t.attempts < ?`
     )
@@ -21,6 +21,8 @@ async function processPost(post) {
       mode: t.mode,
       access_token: t.access_token,
       refresh_token: t.refresh_token,
+      external_id: t.external_id,
+      token_expires_at: t.token_expires_at,
     };
     try {
       const res = await adapters[t.platform].publish({

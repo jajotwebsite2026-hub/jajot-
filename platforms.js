@@ -2,6 +2,8 @@
 // Each adapter has: publish({ account, caption, mediaPath, mediaType }) -> { url }
 // "demo" mode simulates a post. Real mode is added later when OAuth keys are ready.
 
+const instagram = require('./instagram');
+
 const LIMITS = {
   twitter: 280,
   instagram: 2200,
@@ -39,6 +41,10 @@ for (const p of PLATFORMS) {
   adapters[p] = {
     async publish(args) {
       if (args.account.mode === 'demo') return demoPublish(args);
+      if (p === 'instagram' && args.account.mode === 'live') {
+        const base = instagram.publicBase();
+        return instagram.publish({ ...args, mediaUrl: `${base}/pub/${args.mediaPath}` });
+      }
       // TODO real mode: implement per platform with official API + OAuth tokens
       throw new Error(`${p} live mode not connected yet`);
     },

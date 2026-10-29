@@ -54,4 +54,9 @@ CREATE INDEX IF NOT EXISTS idx_posts_due ON posts(status, scheduled_at);
 CREATE INDEX IF NOT EXISTS idx_accounts_user ON accounts(user_id);
 `);
 
+// light migrations
+const cols = db.prepare("PRAGMA table_info(accounts)").all().map((c) => c.name);
+if (!cols.includes('external_id')) db.exec('ALTER TABLE accounts ADD COLUMN external_id TEXT');
+if (!cols.includes('token_expires_at')) db.exec('ALTER TABLE accounts ADD COLUMN token_expires_at TEXT');
+
 module.exports = db;

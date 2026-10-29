@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const db = require('./db');
 const { PLATFORMS, LIMITS, validate } = require('./platforms');
 const scheduler = require('./scheduler');
+const ig = require('./instagram');
 
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
@@ -20,6 +21,7 @@ const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, 'uploads');
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const app = express();
+app.set('trust proxy', 1);
 app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -207,6 +209,47 @@ app.get('/api/media/:file', auth, (req, res) => {
   const own = db.prepare('SELECT 1 FROM posts WHERE media_path=? AND user_id=?').get(f, req.user.id);
   if (!own) return res.status(404).end();
   res.sendFile(path.join(UPLOAD_DIR, f));
+});
+
+// Public media URL (needed so Instagram can download the file). Names are random.
+app.get('/pub/:file', (req, res) => {
+  const f = path.basename(req.params.file);
+  const full = path.join(UPLOAD_DIR, f);
+  if (!fs.existsSync(full)) return res.status(404).end();
+  res.sendFile(full);
+});
+
+// ---------- Instagram connect ----------
+const igRedirect = (req) => `${ig.publicBase(req)}/auth/instagram/callback`;
+
+app.get('/auth/instagram/start', auth, (req, res) => {
+  if (!ig.configured()) return res.status(500).send('Instagram is not configured (IG_APP_ID / IG_APP_SECRET missing).');
+  const state = jwt.sign({ u: req.user.id }, JWT_SECRET, { expiresIn: '10m' });
+  res.redirect(ig.authUrl({ redirectUri: igRedirect(req), state }));
+});
+
+app.get('/auth/instagram/callback', auth, async (req, res) => {
+  try {
+    if (req.query.error) throw new Error(req.query.error_description || req.query.error);
+    const st = jwt.verify(String(req.query.state || ''), JWT_SECRET);
+    if (st.u !== req.user.id) throw new Error('Wrong session, try again');
+    const t = await ig.connect({ code: String(req.query.code || ''), redirectUri: igRedirect(req) });
+    const ex = db
+      .prepare("SELECT id FROM accounts WHERE user_id=? AND platform='instagram' AND external_id=?")
+      .get(req.user.id, t.igId);
+    if (ex) {
+      db.prepare("UPDATE accounts SET access_token=?, token_expires_at=?, handle=?, mode='live' WHERE id=?").run(
+        t.token, t.expiresAt, t.username, ex.id
+      );
+    } else {
+      db.prepare(
+        "INSERT INTO accounts (user_id, platform, label, handle, access_token, external_id, token_expires_at, mode) VALUES (?,?,?,?,?,?,?, 'live')"
+      ).run(req.user.id, 'instagram', t.username, t.username, t.token, t.igId, t.expiresAt);
+    }
+    res.redirect('/?ig=ok');
+  } catch (e) {
+    res.redirect('/?ig=err&msg=' + encodeURIComponent(e.message));
+  }
 });
 
 // ---------- admin ----------
