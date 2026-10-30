@@ -6,6 +6,7 @@ const providers = {
 const ig = require('./instagram');
 
 module.exports = function mount(app, { auth, db, jwt, JWT_SECRET }) {
+  require('./pwa-routes')(app);
   for (const [name, P] of Object.entries(providers)) {
     const redirect = (req) => `${ig.publicBase(req)}/auth/${name}/callback`;
 
