@@ -1,7 +1,7 @@
 // LinkedIn personal-profile posting. Env: LINKEDIN_CLIENT_ID, LINKEDIN_CLIENT_SECRET.
 // Products needed on the LinkedIn app: "Share on LinkedIn" + "Sign In with LinkedIn using OpenID Connect".
 const SCOPES = 'openid profile w_member_social';
-const VERSION = process.env.LINKEDIN_VERSION || '202510';
+const VERSION = process.env.LINKEDIN_VERSION || '202610';
 
 const envHelp = 'LINKEDIN_CLIENT_ID / LINKEDIN_CLIENT_SECRET';
 const configured = () => Boolean(process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET);
