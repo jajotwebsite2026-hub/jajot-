@@ -228,7 +228,7 @@
             .map(
               (t) => `<div class="target"><span class="badge ${esc(t.status)}">${esc(t.status)}</span>
               ${esc(t.label)} <span class="muted">(${esc(LABEL[t.platform])})</span>
-              ${t.external_url ? ` <a href="${esc(t.external_url)}" target="_blank" rel="noopener">link</a>` : ''}
+              ${t.external_url ? ` <a href="${esc(t.external_url)}" target="_blank" rel="noopener">${t.platform === 'twitter' ? 'Open X &amp; post' : 'link'}</a>` : ''}
               ${t.error ? `<div class="e">${esc(t.error)}</div>` : ''}</div>`
             )
             .join('');

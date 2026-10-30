@@ -46,6 +46,11 @@ const adapters = {};
 for (const p of PLATFORMS) {
   adapters[p] = {
     async publish(args) {
+      // X/Twitter: no paid API. Give a ready-to-post link (opens X compose with the text filled).
+      if (p === 'twitter') {
+        const q = new URLSearchParams({ text: args.caption || '' });
+        return { url: `https://x.com/intent/post?${q}` };
+      }
       if (args.account.mode === 'demo') return demoPublish(args);
       if (p === 'instagram' && args.account.mode === 'live') {
         const base = instagram.publicBase();
