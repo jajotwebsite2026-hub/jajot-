@@ -230,6 +230,7 @@
               ${esc(t.label)} <span class="muted">(${esc(LABEL[t.platform])})</span>
               ${t.external_url ? ` <a href="${esc(t.external_url)}" target="_blank" rel="noopener">${t.platform === 'twitter' ? 'Open X &amp; post' : t.platform === 'whatsapp' ? 'Open channel' : 'link'}</a>` : ''}
               ${t.platform === 'whatsapp' ? ` <button data-copy="${esc(t.caption || p.base_text || '')}">Copy text</button>` : ''}
+              ${(t.platform === 'whatsapp' || t.platform === 'twitter') && p.media_path ? ` <button data-share="${esc(p.media_path)}" data-text="${esc(t.caption || p.base_text || '')}">Share with image</button> <a href="/api/media/${esc(p.media_path)}" download>Download image</a>` : ''}
               ${t.error ? `<div class="e">${esc(t.error)}</div>` : ''}</div>`
             )
             .join('');
@@ -247,6 +248,29 @@
         .join('');
       el.querySelectorAll('[data-copy]').forEach((b) => (b.onclick = async () => {
         try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = 'Copied!'; } catch { b.textContent = 'Copy failed'; }
+      }));
+      el.querySelectorAll('[data-share]').forEach((b) => (b.onclick = async () => {
+        const old = b.textContent;
+        try {
+          b.textContent = 'Loading...';
+          const r = await fetch('/api/media/' + b.dataset.share, { credentials: 'same-origin' });
+          if (!r.ok) throw new Error('Media not found');
+          const blob = await r.blob();
+          const file = new File([blob], b.dataset.share, { type: blob.type });
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({ files: [file], text: b.dataset.text });
+          } else {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = b.dataset.share;
+            a.click();
+            alert('Share is not supported on this device. Image downloaded - attach it manually.');
+          }
+        } catch (e) {
+          if (e.name !== 'AbortError') alert(e.message);
+        } finally {
+          b.textContent = old;
+        }
       }));
       el.querySelectorAll('[data-retry]').forEach((b) => (b.onclick = async () => { await api(`/api/posts/${b.dataset.retry}/retry`, { method: 'POST' }); loadHistory(); }));
       el.querySelectorAll('[data-rm]').forEach((b) => (b.onclick = async () => {
