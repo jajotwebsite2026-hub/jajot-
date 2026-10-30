@@ -1,7 +1,8 @@
-// Generic "Connect <platform>" OAuth routes for Facebook and YouTube.
+// Generic "Connect <platform>" OAuth routes for Facebook, YouTube and LinkedIn.
 const providers = {
   facebook: require('./facebook'),
   youtube: require('./youtube'),
+  linkedin: require('./linkedin'),
 };
 const ig = require('./instagram');
 

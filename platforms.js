@@ -6,6 +6,7 @@ const path = require('path');
 const instagram = require('./instagram');
 const facebook = require('./facebook');
 const youtube = require('./youtube');
+const linkedin = require('./linkedin');
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, 'uploads');
 
@@ -56,6 +57,9 @@ for (const p of PLATFORMS) {
       }
       if (p === 'youtube' && args.account.mode === 'live') {
         return youtube.publish({ ...args, filePath: path.join(UPLOAD_DIR, args.mediaPath || '') });
+      }
+      if (p === 'linkedin' && args.account.mode === 'live') {
+        return linkedin.publish({ ...args, filePath: args.mediaPath ? path.join(UPLOAD_DIR, args.mediaPath) : null });
       }
       // TODO real mode: implement per platform with official API + OAuth tokens
       throw new Error(`${p} live mode not connected yet`);
