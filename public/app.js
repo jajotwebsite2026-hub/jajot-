@@ -2,7 +2,7 @@
   const $ = (id) => document.getElementById(id);
   const state = { me: null, platforms: [], limits: {}, accounts: [], mode: 'login' };
 
-  const LABEL = { twitter: 'X (Twitter)', instagram: 'Instagram', facebook: 'Facebook', linkedin: 'LinkedIn', youtube: 'YouTube' };
+  const LABEL = { twitter: 'X (Twitter)', instagram: 'Instagram', facebook: 'Facebook', linkedin: 'LinkedIn', youtube: 'YouTube', whatsapp: 'WhatsApp Channel' };
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -228,7 +228,8 @@
             .map(
               (t) => `<div class="target"><span class="badge ${esc(t.status)}">${esc(t.status)}</span>
               ${esc(t.label)} <span class="muted">(${esc(LABEL[t.platform])})</span>
-              ${t.external_url ? ` <a href="${esc(t.external_url)}" target="_blank" rel="noopener">${t.platform === 'twitter' ? 'Open X &amp; post' : 'link'}</a>` : ''}
+              ${t.external_url ? ` <a href="${esc(t.external_url)}" target="_blank" rel="noopener">${t.platform === 'twitter' ? 'Open X &amp; post' : t.platform === 'whatsapp' ? 'Open channel' : 'link'}</a>` : ''}
+              ${t.platform === 'whatsapp' ? ` <button data-copy="${esc(t.caption || p.base_text || '')}">Copy text</button>` : ''}
               ${t.error ? `<div class="e">${esc(t.error)}</div>` : ''}</div>`
             )
             .join('');
@@ -244,6 +245,9 @@
             </div></div>`;
         })
         .join('');
+      el.querySelectorAll('[data-copy]').forEach((b) => (b.onclick = async () => {
+        try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = 'Copied!'; } catch { b.textContent = 'Copy failed'; }
+      }));
       el.querySelectorAll('[data-retry]').forEach((b) => (b.onclick = async () => { await api(`/api/posts/${b.dataset.retry}/retry`, { method: 'POST' }); loadHistory(); }));
       el.querySelectorAll('[data-rm]').forEach((b) => (b.onclick = async () => {
         if (!confirm('Delete this post record?')) return;

@@ -16,6 +16,7 @@ const LIMITS = {
   facebook: 63206,
   linkedin: 3000,
   youtube: 5000,
+  whatsapp: 4096,
 };
 
 const PLATFORMS = Object.keys(LIMITS);
@@ -50,6 +51,12 @@ for (const p of PLATFORMS) {
       if (p === 'twitter') {
         const q = new URLSearchParams({ text: args.caption || '' });
         return { url: `https://x.com/intent/post?${q}` };
+      }
+      // WhatsApp Channel: no posting API. Open the channel (handle = channel link); user pastes copied text.
+      if (p === 'whatsapp') {
+        const h = String(args.account.handle || '');
+        if (/^https?:\/\//.test(h)) return { url: h };
+        return { url: `https://wa.me/?${new URLSearchParams({ text: args.caption || '' })}` };
       }
       if (args.account.mode === 'demo') return demoPublish(args);
       if (p === 'instagram' && args.account.mode === 'live') {
