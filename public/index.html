@@ -40,6 +40,7 @@
     </nav>
     <span class="grow"></span>
     <span id="who" class="muted"></span>
+    <button id="chpass">Change password</button>
     <button id="logout">Logout</button>
   </header>
 
@@ -53,7 +54,12 @@
         <label>Image or video</label>
         <input id="c-media" type="file" accept="image/*,video/*">
 
-        <label>Post to</label>
+        <label>Post to <span id="sel-count" class="muted"></span></label>
+        <div class="row">
+          <button type="button" id="sel-all">Select all</button>
+          <button type="button" id="sel-none">Clear</button>
+          <span class="muted">Tap an account to tick / untick it</span>
+        </div>
         <div id="c-accounts" class="chips"></div>
         <div id="c-empty" class="muted hidden">No accounts yet. Add some in the Accounts tab.</div>
 
