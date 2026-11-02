@@ -7,6 +7,7 @@ const instagram = require('./instagram');
 const facebook = require('./facebook');
 const youtube = require('./youtube');
 const linkedin = require('./linkedin');
+const telegram = require('./telegram');
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, 'uploads');
 
@@ -17,6 +18,7 @@ const LIMITS = {
   linkedin: 3000,
   youtube: 5000,
   whatsapp: 4096,
+  telegram: 4096,
 };
 
 const PLATFORMS = Object.keys(LIMITS);
@@ -57,6 +59,10 @@ for (const p of PLATFORMS) {
         const h = String(args.account.handle || '');
         if (/^https?:\/\//.test(h)) return { url: h };
         return { url: `https://wa.me/?${new URLSearchParams({ text: args.caption || '' })}` };
+      }
+      // Telegram: real posting whenever the bot token is set (account handle = channel @username).
+      if (p === 'telegram' && telegram.configured()) {
+        return telegram.publish({ ...args, filePath: args.mediaPath ? path.join(UPLOAD_DIR, args.mediaPath) : null });
       }
       if (args.account.mode === 'demo') return demoPublish(args);
       if (p === 'instagram' && args.account.mode === 'live') {

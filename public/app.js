@@ -2,7 +2,7 @@
   const $ = (id) => document.getElementById(id);
   const state = { me: null, platforms: [], limits: {}, accounts: [], mode: 'login' };
 
-  const LABEL = { twitter: 'X (Twitter)', instagram: 'Instagram', facebook: 'Facebook', linkedin: 'LinkedIn', youtube: 'YouTube', whatsapp: 'WhatsApp Channel' };
+  const LABEL = { twitter: 'X (Twitter)', instagram: 'Instagram', facebook: 'Facebook', linkedin: 'LinkedIn', youtube: 'YouTube', whatsapp: 'WhatsApp Channel', telegram: 'Telegram' };
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
