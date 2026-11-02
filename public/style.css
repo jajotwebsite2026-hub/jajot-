@@ -98,3 +98,5 @@ th, td { text-align: left; padding: 8px 6px; border-top: 1px solid var(--line); 
   header { padding: 8px 12px; }
   main { padding: 12px; }
 }
+.chip::before { content: '\2610  '; }
+.chip.on::before { content: '\2611  '; }
