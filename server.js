@@ -22,6 +22,13 @@ fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const app = express();
 app.set('trust proxy', 1);
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'same-origin');
+  if (process.env.NODE_ENV === 'production') res.setHeader('Strict-Transport-Security', 'max-age=15552000');
+  next();
+});
 app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -111,6 +118,15 @@ app.post('/api/login', (req, res) => {
   }
   loginFails.delete(k);
   issueToken(res, u);
+  res.json({ ok: true });
+});
+
+app.post('/api/password', auth, (req, res) => {
+  const { current, next } = req.body || {};
+  const u = db.prepare('SELECT * FROM users WHERE id=?').get(req.user.id);
+  if (!bcrypt.compareSync(current || '', u.password_hash)) return res.status(401).json({ error: 'Current password is wrong' });
+  if (!next || next.length < 8) return res.status(400).json({ error: 'New password min 8 chars' });
+  db.prepare('UPDATE users SET password_hash=? WHERE id=?').run(bcrypt.hashSync(next, 10), u.id);
   res.json({ ok: true });
 });
 

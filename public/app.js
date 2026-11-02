@@ -48,6 +48,23 @@
     }
   };
 
+  $('chpass').onclick = async () => {
+    const current = prompt('Current password');
+    if (!current) return;
+    const next = prompt('New password (min 8 characters)');
+    if (!next) return;
+    try {
+      await api('/api/password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ current, next }),
+      });
+      alert('Password changed.');
+    } catch (e) {
+      alert(e.message);
+    }
+  };
+
   $('logout').onclick = async () => {
     await api('/api/logout', { method: 'POST' });
     location.reload();
@@ -69,6 +86,14 @@
   // ---------- accounts ----------
   async function loadAccounts() {
     state.accounts = await api('/api/accounts');
+    if (!state.selLoaded) {
+      state.selLoaded = true;
+      try {
+        JSON.parse(localStorage.getItem('sh_sel') || '[]').forEach((id) => {
+          if (state.accounts.find((a) => a.id === id)) selected.add(id);
+        });
+      } catch {}
+    }
     renderAccounts();
     renderChips();
   }
@@ -134,8 +159,16 @@
   // ---------- compose ----------
   const selected = new Set();
 
+  function saveSel() {
+    try { localStorage.setItem('sh_sel', JSON.stringify([...selected])); } catch {}
+  }
+  $('sel-all').onclick = () => { state.accounts.forEach((a) => selected.add(a.id)); renderChips(); };
+  $('sel-none').onclick = () => { selected.clear(); renderChips(); };
+
   function renderChips() {
     const el = $('c-accounts');
+    saveSel();
+    $('sel-count').textContent = state.accounts.length ? `(${selected.size} of ${state.accounts.length} selected)` : '';
     $('c-empty').classList.toggle('hidden', state.accounts.length > 0);
     for (const id of [...selected]) if (!state.accounts.find((a) => a.id === id)) selected.delete(id);
     el.innerHTML = state.accounts
@@ -188,7 +221,11 @@
       c.classList.toggle('over', len > max);
     }
   }
-  $('c-text').oninput = updateCounts;
+  try { $('c-text').value = localStorage.getItem('sh_draft') || ''; } catch {}
+  $('c-text').oninput = () => {
+    try { localStorage.setItem('sh_draft', $('c-text').value); } catch {}
+    updateCounts();
+  };
 
   document.querySelectorAll('input[name=when]').forEach((r) => {
     r.onchange = () => $('c-when').classList.toggle('hidden', document.querySelector('input[name=when]:checked').value !== 'later');
@@ -216,14 +253,15 @@
     if (f && hasIg) { try { f = await toJpeg(f); } catch {} }
     if (f) fd.append('media', f);
 
+    if (!later && selected.size >= 3 && !confirm(`Post to ${selected.size} accounts now?`)) return;
     $('c-send').disabled = true;
     try {
       await api('/api/posts', { method: 'POST', body: fd });
-      msg.textContent = later ? 'Scheduled.' : 'Sent. Check History for status.';
+      msg.textContent = later ? 'Scheduled.' : `Sent to ${selected.size} account(s). Check History for status.`;
       $('c-text').value = '';
       $('c-media').value = '';
       for (const k of Object.keys(captionCache)) delete captionCache[k];
-      selected.clear();
+      try { localStorage.removeItem('sh_draft'); } catch {}
       renderChips();
     } catch (err) {
       msg.className = 'err';
