@@ -70,6 +70,13 @@ async function connect({ code, redirectUri }) {
   };
 }
 
+// Long-lived token refresh (valid ~60 days, token must be older than 24h and not expired).
+async function refresh(token) {
+  const q = new URLSearchParams({ grant_type: 'ig_refresh_token', access_token: token });
+  const r = await jsonOrThrow(await fetch(`https://graph.instagram.com/refresh_access_token?${q}`));
+  return { token: r.access_token, expiresAt: new Date(Date.now() + (r.expires_in || 5184000) * 1000).toISOString() };
+}
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function post(pathname, params, token) {
@@ -132,4 +139,4 @@ async function publish({ account, caption, mediaUrl, mediaType, mediaPath }) {
   return { url };
 }
 
-module.exports = { configured, publicBase, authUrl, connect, publish };
+module.exports = { configured, publicBase, authUrl, connect, publish, refresh };

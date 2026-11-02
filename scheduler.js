@@ -1,5 +1,6 @@
 const db = require('./db');
 const { adapters } = require('./platforms');
+const instagram = require('./instagram');
 
 const MAX_ATTEMPTS = 3;
 let running = false;
@@ -77,7 +78,34 @@ async function tick() {
   }
 }
 
+// Refresh Instagram tokens that expire within 20 days (they last 60 days and are refreshable).
+async function refreshTokens() {
+  try {
+    const rows = db
+      .prepare(
+        `SELECT id, access_token, token_expires_at FROM accounts
+         WHERE platform='instagram' AND mode='live' AND access_token IS NOT NULL
+           AND token_expires_at IS NOT NULL
+           AND token_expires_at < datetime('now','+20 days') AND token_expires_at > datetime('now')`
+      )
+      .all();
+    for (const r of rows) {
+      try {
+        const t = await instagram.refresh(r.access_token);
+        db.prepare('UPDATE accounts SET access_token=?, token_expires_at=? WHERE id=?').run(t.token, t.expiresAt, r.id);
+        console.log('refreshed instagram token for account', r.id);
+      } catch (e) {
+        console.error('instagram token refresh failed for', r.id, e.message);
+      }
+    }
+  } catch (e) {
+    console.error('refreshTokens error', e);
+  }
+}
+
 function start(intervalMs = 5000) {
+  setInterval(refreshTokens, 6 * 3600 * 1000);
+  setTimeout(refreshTokens, 30 * 1000);
   setInterval(tick, intervalMs);
   tick();
 }

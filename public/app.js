@@ -73,6 +73,25 @@
     renderChips();
   }
 
+  function expiryNote(a) {
+    if (!a.token_expires_at || a.platform === 'instagram') return '';
+    const days = Math.ceil((new Date(a.token_expires_at.replace(' ', 'T') + (a.token_expires_at.endsWith('Z') ? '' : 'Z')) - Date.now()) / 86400000);
+    if (days > 10) return ` <span class="muted">login valid ${days} days</span>`;
+    return ` <span class="err">${days <= 0 ? 'login expired' : 'login expires in ' + days + ' days'} - <a href="/auth/${esc(a.platform)}/start">reconnect</a></span>`;
+  }
+
+  async function toJpeg(file) {
+    if (!file || !file.type.startsWith('image/') || /jpeg/.test(file.type)) return file;
+    const bmp = await createImageBitmap(file);
+    const c = document.createElement('canvas');
+    c.width = bmp.width; c.height = bmp.height;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+    ctx.drawImage(bmp, 0, 0);
+    const blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.92));
+    return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
+  }
+
   function renderAccounts() {
     const el = $('ac-list');
     if (!state.accounts.length) {
@@ -83,7 +102,7 @@
       .map(
         (a) => `<div class="item row">
           <div class="grow"><strong>${esc(a.label)}</strong> <span class="muted">${esc(LABEL[a.platform])} ${esc(a.handle)}</span>
-          <span class="badge">${esc(a.mode)}</span></div>
+          <span class="badge">${esc(a.mode)}</span>${expiryNote(a)}</div>
           <button class="danger" data-del="${a.id}">Remove</button></div>`
       )
       .join('');
@@ -192,7 +211,9 @@
     fd.append('accountIds', JSON.stringify([...selected]));
     fd.append('captions', JSON.stringify(caps));
     if (later) fd.append('scheduleAt', new Date($('c-when').value).toISOString());
-    const f = $('c-media').files[0];
+    let f = $('c-media').files[0];
+    const hasIg = state.accounts.some((a) => selected.has(a.id) && a.platform === 'instagram');
+    if (f && hasIg) { try { f = await toJpeg(f); } catch {} }
     if (f) fd.append('media', f);
 
     $('c-send').disabled = true;
@@ -285,9 +306,24 @@
   // ---------- admin ----------
   async function loadAdmin() {
     const rows = await api('/api/admin/clients');
-    $('ad-list').innerHTML = `<table><tr><th>Name</th><th>Email</th><th>Role</th><th>Accounts</th><th>Posts</th></tr>${rows
+    $('ad-list').innerHTML = `<div class="row"><input id="nu-name" placeholder="Name"><input id="nu-email" type="email" placeholder="Email"><input id="nu-pass" placeholder="Temporary password (min 8)"><button id="nu-add" class="primary">Add user</button></div><div id="nu-msg" class="muted"></div><table><tr><th>Name</th><th>Email</th><th>Role</th><th>Accounts</th><th>Posts</th></tr>${rows
       .map((r) => `<tr><td>${esc(r.name)}</td><td>${esc(r.email)}</td><td>${esc(r.role)}</td><td>${r.accounts}</td><td>${r.posts}</td></tr>`)
       .join('')}</table>`;
+    $('nu-add').onclick = async () => {
+      const msg = $('nu-msg');
+      msg.className = 'muted';
+      try {
+        await api('/api/admin/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: $('nu-name').value, email: $('nu-email').value, password: $('nu-pass').value }),
+        });
+        loadAdmin();
+      } catch (e) {
+        msg.className = 'err';
+        msg.textContent = e.message;
+      }
+    };
   }
 
   // ---------- boot ----------

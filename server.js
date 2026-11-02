@@ -74,8 +74,14 @@ app.post('/api/signup', (req, res) => {
   if (db.prepare('SELECT 1 FROM users WHERE email=?').get(email.toLowerCase())) {
     return res.status(409).json({ error: 'Email already used' });
   }
-  // First user ever becomes admin (the owner)
+  // First user ever becomes admin (the owner). After that sign-up is closed unless ALLOW_SIGNUP=1.
   const isFirst = db.prepare('SELECT COUNT(*) c FROM users').get().c === 0;
+  if (isFirst && process.env.ADMIN_EMAIL && email.toLowerCase() !== process.env.ADMIN_EMAIL.toLowerCase()) {
+    return res.status(403).json({ error: 'This email is not allowed to create the first account' });
+  }
+  if (!isFirst && process.env.ALLOW_SIGNUP !== '1') {
+    return res.status(403).json({ error: 'Sign-up is closed. Ask the admin to create your account.' });
+  }
   const info = db
     .prepare('INSERT INTO users (email, password_hash, name, role) VALUES (?,?,?,?)')
     .run(email.toLowerCase(), bcrypt.hashSync(password, 10), name || '', isFirst ? 'admin' : 'client');
@@ -84,12 +90,26 @@ app.post('/api/signup', (req, res) => {
   res.json({ ok: true });
 });
 
+// Simple login rate limit: 10 failed tries per 15 minutes per IP+email
+const loginFails = new Map();
+const failKey = (req, email) => `${req.ip}:${(email || '').toLowerCase()}`;
+const recentFails = (k) => {
+  const now = Date.now();
+  const a = (loginFails.get(k) || []).filter((t) => now - t < 15 * 60 * 1000);
+  loginFails.set(k, a);
+  return a;
+};
+
 app.post('/api/login', (req, res) => {
   const { email, password } = req.body || {};
+  const k = failKey(req, email);
+  if (recentFails(k).length >= 10) return res.status(429).json({ error: 'Too many tries. Wait 15 minutes.' });
   const u = db.prepare('SELECT * FROM users WHERE email=?').get((email || '').toLowerCase());
   if (!u || !bcrypt.compareSync(password || '', u.password_hash)) {
+    recentFails(k).push(Date.now());
     return res.status(401).json({ error: 'Wrong email or password' });
   }
+  loginFails.delete(k);
   issueToken(res, u);
   res.json({ ok: true });
 });
@@ -106,7 +126,7 @@ app.get('/api/me', auth, (req, res) => {
 // ---------- accounts ----------
 app.get('/api/accounts', auth, (req, res) => {
   const rows = db
-    .prepare('SELECT id, platform, label, handle, mode, created_at FROM accounts WHERE user_id=? ORDER BY platform, id')
+    .prepare('SELECT id, platform, label, handle, mode, created_at, token_expires_at FROM accounts WHERE user_id=? ORDER BY platform, id')
     .all(req.user.id);
   res.json(rows);
 });
@@ -265,6 +285,19 @@ app.get('/api/admin/clients', auth, adminOnly, (req, res) => {
     )
     .all();
   res.json(rows);
+});
+
+app.post('/api/admin/users', auth, adminOnly, (req, res) => {
+  const { email, password, name } = req.body || {};
+  if (!email || !/^\S+@\S+\.\S+$/.test(email)) return res.status(400).json({ error: 'Valid email needed' });
+  if (!password || password.length < 8) return res.status(400).json({ error: 'Password min 8 chars' });
+  if (db.prepare('SELECT 1 FROM users WHERE email=?').get(email.toLowerCase())) {
+    return res.status(409).json({ error: 'Email already used' });
+  }
+  const info = db
+    .prepare("INSERT INTO users (email, password_hash, name, role) VALUES (?,?,?, 'client')")
+    .run(email.toLowerCase(), bcrypt.hashSync(password, 10), (name || '').trim());
+  res.json({ id: info.lastInsertRowid });
 });
 
 app.use((err, req, res, next) => {
