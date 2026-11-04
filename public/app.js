@@ -8,6 +8,11 @@
     return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
+  // Instagram account added by hand = manual share (link points to the Instagram home page, not a post)
+  function igManual(t) {
+    return t.platform === 'instagram' && !!t.external_url && /instagram\.com\/?$/.test(t.external_url);
+  }
+
   async function api(path, opts = {}) {
     const res = await fetch(path, { credentials: 'same-origin', ...opts });
     let data = {};
@@ -287,9 +292,9 @@
             .map(
               (t) => `<div class="target"><span class="badge ${esc(t.status)}">${esc(t.status)}</span>
               ${esc(t.label)} <span class="muted">(${esc(LABEL[t.platform])})</span>
-              ${t.external_url ? ` <a href="${esc(t.external_url)}" target="_blank" rel="noopener">${t.platform === 'twitter' ? 'Open X &amp; post' : t.platform === 'whatsapp' ? 'Open channel' : 'link'}</a>` : ''}
-              ${t.platform === 'whatsapp' ? ` <button data-copy="${esc(t.caption || p.base_text || '')}">Copy text</button>` : ''}
-              ${(t.platform === 'whatsapp' || t.platform === 'twitter') && p.media_path ? ` <button data-share="${esc(p.media_path)}" data-text="${esc(t.caption || p.base_text || '')}">Share with image</button> <a href="/api/media/${esc(p.media_path)}" download>Download image</a>` : ''}
+              ${t.external_url ? ` <a href="${esc(t.external_url)}" target="_blank" rel="noopener">${t.platform === 'twitter' ? 'Open X &amp; post' : t.platform === 'whatsapp' ? 'Open channel' : igManual(t) ? 'Open Instagram' : 'link'}</a>` : ''}
+              ${(t.platform === 'whatsapp' || igManual(t)) ? ` <button data-copy="${esc(t.caption || p.base_text || '')}">Copy text</button>` : ''}
+              ${(t.platform === 'whatsapp' || t.platform === 'twitter' || igManual(t)) && p.media_path ? ` <button data-share="${esc(p.media_path)}" data-text="${esc(t.caption || p.base_text || '')}">Share with image</button> <a href="/api/media/${esc(p.media_path)}" download>Download image</a>` : ''}
               ${t.error ? `<div class="e">${esc(t.error)}</div>` : ''}</div>`
             )
             .join('');

@@ -29,7 +29,8 @@ const NEEDS_MEDIA = {
 };
 
 // These platforms only work through the "Connect ... (real)" buttons.
-const CONNECT_ONLY = ['instagram', 'facebook', 'youtube', 'linkedin'];
+// (Instagram added by hand is manual-share mode, see adapter below.)
+const CONNECT_ONLY = ['facebook', 'youtube', 'linkedin'];
 
 function validate(platform, caption, mediaPath, mediaType) {
   if (!PLATFORMS.includes(platform)) return `Unknown platform: ${platform}`;
@@ -67,8 +68,12 @@ for (const p of PLATFORMS) {
       if (p === 'telegram' && telegram.configured()) {
         return telegram.publish({ ...args, filePath: args.mediaPath ? path.join(UPLOAD_DIR, args.mediaPath) : null });
       }
+      // Instagram added by hand (not connected): manual-share mode. Open Instagram; the app offers Copy text / Share with image.
+      if (p === 'instagram' && args.account.mode === 'demo') {
+        return { url: 'https://www.instagram.com/' };
+      }
       if (args.account.mode === 'demo') {
-        // A hand-added Instagram/Facebook/YouTube/LinkedIn account is NOT connected. Never fake a successful post.
+        // A hand-added Facebook/YouTube/LinkedIn account is NOT connected. Never fake a successful post.
         if (CONNECT_ONLY.includes(p)) {
           throw new Error(`This ${p} account is not connected. Remove it and use the "Connect ${p}" button in the Accounts tab.`);
         }
