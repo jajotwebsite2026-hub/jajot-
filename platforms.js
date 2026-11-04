@@ -38,7 +38,8 @@ function validate(platform, caption, mediaPath, mediaType) {
     return `${platform} caption too long (max ${LIMITS[platform]})`;
   }
   if (NEEDS_MEDIA[platform] && !mediaPath) return `${platform} needs an image or video`;
-  if (platform === 'youtube' && mediaType !== 'video') return 'youtube needs a video';
+  // YouTube takes a video, or an image that is turned into a 5 second video.
+  if (platform === 'youtube' && mediaType !== 'video' && mediaType !== 'image') return 'youtube needs a video or an image';
   return null;
 }
 
