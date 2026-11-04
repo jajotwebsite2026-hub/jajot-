@@ -53,9 +53,13 @@ const adapters = {};
 for (const p of PLATFORMS) {
   adapters[p] = {
     async publish(args) {
-      // X/Twitter: no paid API. Give a ready-to-post link (opens X compose with the text filled).
+      // X/Twitter: no free API. Give a ready-to-post link (opens X compose with the text filled).
+      // With an image, the link also carries a card page (/x/<file>) so X shows the picture in the post.
       if (p === 'twitter') {
         const q = new URLSearchParams({ text: args.caption || '' });
+        if (args.mediaPath && args.mediaType !== 'video') {
+          q.set('url', `${instagram.publicBase()}/x/${encodeURIComponent(args.mediaPath)}`);
+        }
         return { url: `https://x.com/intent/post?${q}` };
       }
       // WhatsApp Channel: no posting API. Open the channel (handle = channel link); user pastes copied text.

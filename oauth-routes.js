@@ -1,5 +1,8 @@
 // Generic "Connect <platform>" OAuth routes for Facebook, YouTube and LinkedIn,
-// plus the one-tap Telegram connect (deep link makes the bot admin, then we scan for the channel).
+// plus the one-tap Telegram connect (deep link makes the bot admin, then we scan for the channel),
+// plus /x/:file, a public card page so an X post link shows the image.
+const fs = require('fs');
+const path = require('path');
 const providers = {
   facebook: require('./facebook'),
   youtube: require('./youtube'),
@@ -7,6 +10,8 @@ const providers = {
 };
 const ig = require('./instagram');
 const tg = require('./telegram');
+
+const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, 'uploads');
 
 async function tgCall(method, body = {}) {
   const r = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/${method}`, {
@@ -26,6 +31,23 @@ async function bot() {
 
 module.exports = function mount(app, { auth, db, jwt, JWT_SECRET }) {
   require('./pwa-routes')(app);
+
+  // ---- Public image card page for X (Twitter card). Opened by X's crawler when the post link is previewed. ----
+  app.get('/x/:file', (req, res) => {
+    const f = String(req.params.file || '');
+    if (!/^[A-Za-z0-9._-]+$/.test(f) || !fs.existsSync(path.join(UPLOAD_DIR, f))) return res.status(404).send('Not found');
+    const img = `${ig.publicBase(req)}/pub/${encodeURIComponent(f)}`;
+    res.set('Cache-Control', 'public, max-age=3600');
+    res.type('html').send(
+      `<!doctype html><html><head><meta charset="utf-8"><title>Image</title>` +
+        `<meta name="twitter:card" content="summary_large_image">` +
+        `<meta name="twitter:image" content="${img}">` +
+        `<meta property="og:title" content=" ">` +
+        `<meta property="og:image" content="${img}">` +
+        `<meta name="viewport" content="width=device-width,initial-scale=1"></head>` +
+        `<body style="margin:0"><img src="${img}" style="max-width:100%"></body></html>`
+    );
+  });
 
   // ---- Telegram one-tap connect ----
   app.get('/api/telegram/link', auth, async (req, res) => {
