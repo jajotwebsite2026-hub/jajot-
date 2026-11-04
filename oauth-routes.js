@@ -37,15 +37,21 @@ module.exports = function mount(app, { auth, db, jwt, JWT_SECRET }) {
     const f = String(req.params.file || '');
     if (!/^[A-Za-z0-9._-]+$/.test(f) || !fs.existsSync(path.join(UPLOAD_DIR, f))) return res.status(404).send('Not found');
     const img = `${ig.publicBase(req)}/pub/${encodeURIComponent(f)}`;
+    const page = `${ig.publicBase(req)}/x/${encodeURIComponent(f)}`;
     res.set('Cache-Control', 'public, max-age=3600');
     res.type('html').send(
-      `<!doctype html><html><head><meta charset="utf-8"><title>Image</title>` +
+      `<!doctype html><html><head><meta charset="utf-8"><title>Photo</title>` +
         `<meta name="twitter:card" content="summary_large_image">` +
+        `<meta name="twitter:title" content="Photo">` +
+        `<meta name="twitter:description" content="Photo">` +
         `<meta name="twitter:image" content="${img}">` +
-        `<meta property="og:title" content=" ">` +
+        `<meta property="og:type" content="website">` +
+        `<meta property="og:url" content="${page}">` +
+        `<meta property="og:title" content="Photo">` +
+        `<meta property="og:description" content="Photo">` +
         `<meta property="og:image" content="${img}">` +
         `<meta name="viewport" content="width=device-width,initial-scale=1"></head>` +
-        `<body style="margin:0"><img src="${img}" style="max-width:100%"></body></html>`
+        `<body style="margin:0"><img src="${img}" alt="Photo" style="max-width:100%"></body></html>`
     );
   });
 
