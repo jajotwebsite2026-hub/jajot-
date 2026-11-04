@@ -1,13 +1,13 @@
-// Accounts tab helper: quick-add buttons, a hint for platforms that have no "Connect" login button,
-// and clear badges instead of "demo".
+// Accounts tab helper: Connect Telegram (one tap), quick-add buttons, a hint for platforms that have
+// no "Connect" login button, and clear badges instead of "demo".
 (function () {
   var HINTS = {
     telegram: {
-      text: 'Telegram: put the channel @username in the handle box (example @mychannel). Make the bot @jajot_socialhub_bot an admin of that channel. Posts go out automatically.',
+      text: 'Telegram: tap Connect Telegram, choose your channel, confirm. Come back here and tap Finish Telegram. The channel is added and posts go out automatically.',
       ph: '@channelusername',
     },
     whatsapp: {
-      text: 'WhatsApp Channel: put the channel link in the handle box. After posting, open History and use Open channel, Copy text and Share with image.',
+      text: 'WhatsApp Channel: put the channel link in the handle box. After posting, open History and use Copy text & open channel and Download image.',
       ph: 'https://whatsapp.com/channel/...',
     },
     twitter: {
@@ -20,7 +20,6 @@
     },
   };
   var QUICK = [
-    ['telegram', 'Add Telegram'],
     ['whatsapp', 'Add WhatsApp Channel'],
     ['twitter', 'Add X'],
     ['instagram', 'Add Instagram (manual)'],
@@ -58,6 +57,51 @@
     sel.addEventListener('change', update);
     try { new MutationObserver(update).observe(sel, { childList: true }); } catch (e) {}
     try { if (list) new MutationObserver(relabel).observe(list, { childList: true }); } catch (e) {}
+
+    // --- Connect Telegram (one tap) ---
+    var tgUrl = null;
+    var tgBtn = document.createElement('button');
+    tgBtn.type = 'button';
+    tgBtn.textContent = 'Connect Telegram';
+    tgBtn.className = 'primary';
+    var tgFinish = document.createElement('button');
+    tgFinish.type = 'button';
+    tgFinish.textContent = 'Finish Telegram';
+    var tgMsg = document.createElement('div');
+    tgMsg.className = 'muted';
+    quick.appendChild(tgBtn);
+    quick.appendChild(document.createTextNode(' '));
+    quick.appendChild(tgFinish);
+    quick.appendChild(tgMsg);
+
+    fetch('/api/telegram/link', { credentials: 'same-origin' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { if (j && j.url) tgUrl = j.url; else tgMsg.textContent = 'Telegram is not set up on the server yet.'; })
+      .catch(function () {});
+
+    tgBtn.onclick = function () {
+      if (!tgUrl) { tgMsg.textContent = 'Telegram link not ready, wait a second and try again.'; return; }
+      tgMsg.textContent = 'In Telegram: choose your channel, confirm adding the bot as admin. Then come back and tap Finish Telegram.';
+      window.open(tgUrl, '_blank');
+    };
+    tgFinish.onclick = function () {
+      tgMsg.textContent = 'Checking...';
+      fetch('/api/telegram/scan', { method: 'POST', credentials: 'same-origin' })
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (x) {
+          if (!x.ok) { tgMsg.textContent = x.j.error || 'Failed'; return; }
+          if (x.j.added && x.j.added.length) {
+            tgMsg.textContent = 'Telegram connected: ' + x.j.added.join(', ');
+            var nav = document.querySelector('button.nav[data-view="accounts"]');
+            if (nav) nav.click();
+          } else if (x.j.already) {
+            tgMsg.textContent = 'This channel is already added.';
+          } else {
+            tgMsg.textContent = 'No new channel found. Tap Connect Telegram, choose the channel, confirm, then tap Finish again.';
+          }
+        })
+        .catch(function () { tgMsg.textContent = 'Network error, try again.'; });
+    };
 
     QUICK.forEach(function (q) {
       var b = document.createElement('button');
