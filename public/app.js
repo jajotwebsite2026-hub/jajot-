@@ -179,7 +179,7 @@
     el.innerHTML = state.accounts
       .map(
         (a) => `<label class="chip ${selected.has(a.id) ? 'on' : ''}" data-id="${a.id}">
-          ${esc(a.label)} <small>${esc(LABEL[a.platform])}</small></label>`
+          ${esc(a.label)} <small>${esc(LABEL[a.platform])}${a.handle ? ' ' + esc(a.handle) : ''}</small></label>`
       )
       .join('');
     el.querySelectorAll('.chip').forEach((c) => {
