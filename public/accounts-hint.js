@@ -1,4 +1,5 @@
-// Accounts tab helper: quick-add buttons and a hint for platforms that have no "Connect" login button.
+// Accounts tab helper: quick-add buttons, a hint for platforms that have no "Connect" login button,
+// and clear badges instead of "demo".
 (function () {
   var HINTS = {
     telegram: {
@@ -25,12 +26,28 @@
     ['instagram', 'Add Instagram (manual)'],
   ];
 
+  // Replace the technical "demo" badge with something a client understands.
+  function relabel() {
+    var list = document.getElementById('ac-list');
+    if (!list) return;
+    list.querySelectorAll('.item').forEach(function (it) {
+      var b = it.querySelector('.badge');
+      var m = it.querySelector('.muted');
+      if (!b || !m || b.textContent.trim() !== 'demo') return;
+      var t = m.textContent;
+      if (/Telegram/.test(t)) b.textContent = 'auto (bot)';
+      else if (/Instagram|X \(Twitter\)|WhatsApp/.test(t)) b.textContent = 'manual share';
+      else b.textContent = 'not connected';
+    });
+  }
+
   function setup() {
     var sel = document.getElementById('ac-platform');
     var hint = document.getElementById('ac-hint');
     var handle = document.getElementById('ac-handle');
     var label = document.getElementById('ac-label');
     var quick = document.getElementById('ac-quick');
+    var list = document.getElementById('ac-list');
     if (!sel || !hint || !handle || !label || !quick) return;
 
     function update() {
@@ -40,6 +57,7 @@
     }
     sel.addEventListener('change', update);
     try { new MutationObserver(update).observe(sel, { childList: true }); } catch (e) {}
+    try { if (list) new MutationObserver(relabel).observe(list, { childList: true }); } catch (e) {}
 
     QUICK.forEach(function (q) {
       var b = document.createElement('button');
@@ -54,6 +72,7 @@
       quick.appendChild(document.createTextNode(' '));
     });
     update();
+    relabel();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup);
