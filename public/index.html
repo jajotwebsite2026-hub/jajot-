@@ -87,8 +87,16 @@
     <section id="view-accounts" class="hidden">
       <div class="card">
         <h2>Accounts</h2>
-        <p class="muted">Instagram, Facebook, YouTube and LinkedIn: use the Connect buttons below and log in. Telegram, WhatsApp Channel, X and manual Instagram: use the quick buttons or the form.</p>
-        <p id="ac-quick"></p>
+        <p class="muted">Tap a Connect button for each platform. Instagram, Facebook, YouTube and LinkedIn ask you to log in. Telegram, X, WhatsApp Channel and manual Instagram ask for one detail (username or link).</p>
+        <div id="ig-note" class="muted"></div>
+        <p>
+          <a href="/auth/instagram/start"><button type="button" class="primary">Connect Instagram (real)</button></a>
+          <a href="/auth/facebook/start"><button type="button" class="primary">Connect Facebook Page (real)</button></a>
+          <a href="/auth/youtube/start"><button type="button" class="primary">Connect YouTube (real)</button></a>
+          <a href="/auth/linkedin/start"><button type="button" class="primary">Connect LinkedIn (real)</button></a>
+        </p>
+        <p id="ac-quick" class="hidden"></p>
+        <h3>Add by hand</h3>
         <div class="row">
           <select id="ac-platform"></select>
           <input id="ac-label" placeholder="Name (e.g. Channel 1)">
@@ -97,13 +105,6 @@
         </div>
         <div id="ac-hint" class="muted"></div>
         <div id="ac-err" class="err"></div>
-        <div id="ig-note" class="muted"></div>
-        <p>
-          <a href="/auth/instagram/start"><button type="button" class="primary">Connect Instagram (real)</button></a>
-          <a href="/auth/facebook/start"><button type="button" class="primary">Connect Facebook Page (real)</button></a>
-          <a href="/auth/youtube/start"><button type="button" class="primary">Connect YouTube (real)</button></a>
-          <a href="/auth/linkedin/start"><button type="button" class="primary">Connect LinkedIn (real)</button></a>
-        </p>
         <div id="ac-list"></div>
       </div>
     </section>

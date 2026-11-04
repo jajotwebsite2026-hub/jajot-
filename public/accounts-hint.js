@@ -1,5 +1,5 @@
 // Accounts tab helper: Connect Telegram (one tap), one-tap Connect X / WhatsApp Channel / Instagram (manual),
-// a hint for platforms that have no OAuth login, and clear badges instead of "demo".
+// all in the same blue row as the other Connect buttons. Also a hint line and clear badges instead of "demo".
 (function () {
   var HINTS = {
     telegram: {
@@ -15,7 +15,7 @@
       ph: '@handle',
     },
     instagram: {
-      text: 'Instagram by hand (manual): tap Connect Instagram (manual) and type your @username. After posting, open History and use Share with image, then choose Instagram. For automatic posting use Connect Instagram below.',
+      text: 'Instagram by hand (manual): tap Connect Instagram (manual) and type your @username. After posting, open History and use Share with image, then choose Instagram. For automatic posting use Connect Instagram (real).',
       ph: '@instagram_username',
     },
   };
@@ -55,31 +55,36 @@
     var list = document.getElementById('ac-list');
     if (!sel || !hint || !handle || !quick) return;
 
+    // Same row as the Connect Instagram/Facebook/YouTube/LinkedIn buttons.
+    var li = document.querySelector('a[href="/auth/linkedin/start"]');
+    var box = li && li.parentNode ? li.parentNode : quick;
+
     function update() {
       var h = HINTS[sel.value];
-      hint.textContent = h ? h.text : 'For this platform use the Connect buttons below.';
+      hint.textContent = h ? h.text : 'For this platform use the Connect buttons.';
       handle.placeholder = h ? h.ph : '@handle (optional)';
     }
     sel.addEventListener('change', update);
     try { new MutationObserver(update).observe(sel, { childList: true }); } catch (e) {}
     try { if (list) new MutationObserver(relabel).observe(list, { childList: true }); } catch (e) {}
 
+    function addBtn(text) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'primary';
+      b.textContent = text;
+      box.appendChild(document.createTextNode(' '));
+      box.appendChild(b);
+      return b;
+    }
+
     var msg = document.createElement('div');
     msg.className = 'muted';
 
     // --- Connect Telegram (one tap) ---
     var tgUrl = null;
-    var tgBtn = document.createElement('button');
-    tgBtn.type = 'button';
-    tgBtn.textContent = 'Connect Telegram';
-    tgBtn.className = 'primary';
-    var tgFinish = document.createElement('button');
-    tgFinish.type = 'button';
-    tgFinish.textContent = 'Finish Telegram';
-    quick.appendChild(tgBtn);
-    quick.appendChild(document.createTextNode(' '));
-    quick.appendChild(tgFinish);
-    quick.appendChild(document.createTextNode(' '));
+    var tgBtn = addBtn('Connect Telegram');
+    var tgFinish = addBtn('Finish Telegram');
 
     fetch('/api/telegram/link', { credentials: 'same-origin' })
       .then(function (r) { return r.ok ? r.json() : null; })
@@ -111,9 +116,7 @@
 
     // --- One-tap Connect X / WhatsApp Channel / Instagram (manual) ---
     ONE_TAP.forEach(function (o) {
-      var b = document.createElement('button');
-      b.type = 'button';
-      b.textContent = o.btn;
+      var b = addBtn(o.btn);
       b.onclick = function () {
         var v = window.prompt(o.ask);
         if (v === null) return;
@@ -137,10 +140,8 @@
           })
           .catch(function () { msg.textContent = 'Network error, try again.'; });
       };
-      quick.appendChild(b);
-      quick.appendChild(document.createTextNode(' '));
     });
-    quick.appendChild(msg);
+    box.parentNode.insertBefore(msg, box.nextSibling);
     update();
     relabel();
   }
