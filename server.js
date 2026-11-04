@@ -322,5 +322,17 @@ app.use((err, req, res, next) => {
 
 app.get('/healthz', (req, res) => res.json({ ok: true }));
 
+// Password recovery: set RESET_ADMIN_PASSWORD in the host's Variables, redeploy, log in, then REMOVE the variable.
+if (process.env.RESET_ADMIN_PASSWORD) {
+  const pw = process.env.RESET_ADMIN_PASSWORD;
+  const admin = db.prepare("SELECT id, email FROM users WHERE role='admin' ORDER BY id LIMIT 1").get();
+  if (!admin) console.warn('RESET_ADMIN_PASSWORD is set but no admin user exists yet.');
+  else if (pw.length < 8) console.warn('RESET_ADMIN_PASSWORD must be at least 8 characters. Nothing changed.');
+  else {
+    db.prepare('UPDATE users SET password_hash=? WHERE id=?').run(bcrypt.hashSync(pw, 10), admin.id);
+    console.log(`Admin password reset for ${admin.email}. Remove RESET_ADMIN_PASSWORD from Variables now.`);
+  }
+}
+
 scheduler.start();
 app.listen(PORT, () => console.log(`Social Hub running on http://localhost:${PORT}`));
