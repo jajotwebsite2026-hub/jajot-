@@ -60,7 +60,9 @@ async function connect({ code, redirectUri }) {
       externalId: c.id,
       token: t.access_token,
       refreshToken: t.refresh_token,
-      expiresAt: new Date(Date.now() + (t.expires_in || 3600) * 1000).toISOString(),
+      // The 1-hour access token is refreshed on every upload, so no expiry is stored
+      // (storing it made the Accounts tab show a false "login expired" after an hour).
+      expiresAt: null,
     },
   ];
 }
@@ -70,8 +72,15 @@ async function freshToken(account) {
     return account.access_token;
   }
   if (!account.refresh_token) throw new Error('YouTube account needs reconnecting');
-  const t = await tokenCall({ grant_type: 'refresh_token', refresh_token: account.refresh_token });
-  return t.access_token;
+  try {
+    const t = await tokenCall({ grant_type: 'refresh_token', refresh_token: account.refresh_token });
+    return t.access_token;
+  } catch (e) {
+    if (/invalid_grant|expired|revoked/i.test(e.message)) {
+      throw new Error('YouTube login expired - open Accounts and press "Connect YouTube" again');
+    }
+    throw e;
+  }
 }
 
 async function publish({ account, caption, filePath, mediaType }) {

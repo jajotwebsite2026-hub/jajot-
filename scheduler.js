@@ -103,10 +103,22 @@ async function refreshTokens() {
   }
 }
 
+// Render free instances sleep after 15 minutes without traffic, which would pause scheduled posts.
+// Ping our own public URL every 10 minutes so the service stays awake (only runs on Render).
+function keepAlive() {
+  const url = process.env.RENDER_EXTERNAL_URL;
+  if (!url) return;
+  const target = url.replace(/\/$/, '') + '/healthz';
+  setInterval(() => {
+    fetch(target).catch(() => {});
+  }, 10 * 60 * 1000);
+}
+
 function start(intervalMs = 5000) {
   setInterval(refreshTokens, 6 * 3600 * 1000);
   setTimeout(refreshTokens, 30 * 1000);
   setInterval(tick, intervalMs);
+  keepAlive();
   tick();
 }
 

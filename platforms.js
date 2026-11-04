@@ -28,6 +28,9 @@ const NEEDS_MEDIA = {
   youtube: true,
 };
 
+// These platforms only work through the "Connect ... (real)" buttons.
+const CONNECT_ONLY = ['instagram', 'facebook', 'youtube', 'linkedin'];
+
 function validate(platform, caption, mediaPath, mediaType) {
   if (!PLATFORMS.includes(platform)) return `Unknown platform: ${platform}`;
   if ((caption || '').length > LIMITS[platform]) {
@@ -64,7 +67,13 @@ for (const p of PLATFORMS) {
       if (p === 'telegram' && telegram.configured()) {
         return telegram.publish({ ...args, filePath: args.mediaPath ? path.join(UPLOAD_DIR, args.mediaPath) : null });
       }
-      if (args.account.mode === 'demo') return demoPublish(args);
+      if (args.account.mode === 'demo') {
+        // A hand-added Instagram/Facebook/YouTube/LinkedIn account is NOT connected. Never fake a successful post.
+        if (CONNECT_ONLY.includes(p)) {
+          throw new Error(`This ${p} account is not connected. Remove it and use the "Connect ${p}" button in the Accounts tab.`);
+        }
+        return demoPublish(args);
+      }
       if (p === 'instagram' && args.account.mode === 'live') {
         const base = instagram.publicBase();
         return instagram.publish({ ...args, mediaUrl: `${base}/pub/${args.mediaPath}` });

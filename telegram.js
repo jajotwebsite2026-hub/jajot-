@@ -5,6 +5,10 @@ const path = require('path');
 
 const configured = () => Boolean(process.env.TELEGRAM_BOT_TOKEN);
 
+// Telegram Bot API limits: 50 MB per file upload, 10 MB for sendPhoto (bigger images go as a document).
+const MAX_UPLOAD = 50 * 1024 * 1024;
+const MAX_PHOTO = 10 * 1024 * 1024;
+
 function chatId(handle) {
   let h = String(handle || '').trim();
   const m = h.match(/t\.me\/(?:s\/)?([A-Za-z0-9_]{4,})/i);
@@ -40,12 +44,18 @@ async function publish({ account, caption, filePath, mediaType }) {
   let res;
   if (filePath && mediaType) {
     const isVideo = mediaType === 'video';
+    const size = fs.statSync(filePath).size;
+    if (size > MAX_UPLOAD) throw new Error('Telegram: file is over 50 MB (Telegram bot limit). Use a smaller file.');
+    const asDocument = !isVideo && size > MAX_PHOTO;
+    const method = isVideo ? 'sendVideo' : asDocument ? 'sendDocument' : 'sendPhoto';
+    const field = isVideo ? 'video' : asDocument ? 'document' : 'photo';
     const blob = new Blob([fs.readFileSync(filePath)]);
     const f = form({ chat_id: chat });
-    f.append(isVideo ? 'video' : 'photo', blob, path.basename(filePath));
+    if (isVideo) f.append('supports_streaming', 'true');
+    f.append(field, blob, path.basename(filePath));
     const short = text.length <= 1024;
     if (short && text) f.append('caption', text);
-    res = await call(isVideo ? 'sendVideo' : 'sendPhoto', f);
+    res = await call(method, f);
     if (!short) res = await call('sendMessage', form({ chat_id: chat, text }));
   } else {
     if (!text) throw new Error('Telegram: nothing to post');
