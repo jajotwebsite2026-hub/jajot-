@@ -289,14 +289,22 @@
         .map((p) => {
           const when = p.scheduled_at ? 'Scheduled ' + p.scheduled_at + ' UTC' : 'Created ' + p.created_at + ' UTC';
           const targets = p.targets
-            .map(
-              (t) => `<div class="target"><span class="badge ${esc(t.status)}">${esc(t.status)}</span>
+            .map((t) => {
+              const cap = t.caption || p.base_text || '';
+              const manual = t.platform === 'whatsapp' || igManual(t);
+              const linkLabel = t.platform === 'twitter' ? 'Open X &amp; post' : t.platform === 'whatsapp' ? 'Copy text &amp; open channel' : igManual(t) ? 'Copy text &amp; open Instagram' : 'link';
+              const showShare = (t.platform === 'twitter' || igManual(t)) && p.media_path;
+              const showDl = (t.platform === 'whatsapp' || t.platform === 'twitter' || igManual(t)) && p.media_path;
+              const badge = manual && t.status === 'published' ? 'manual share' : t.status;
+              return `<div class="target"><span class="badge ${esc(t.status)}">${esc(badge)}</span>
               ${esc(t.label)} <span class="muted">(${esc(LABEL[t.platform])})</span>
-              ${t.external_url ? ` <a href="${esc(t.external_url)}" target="_blank" rel="noopener">${t.platform === 'twitter' ? 'Open X &amp; post' : t.platform === 'whatsapp' ? 'Open channel' : igManual(t) ? 'Open Instagram' : 'link'}</a>` : ''}
-              ${(t.platform === 'whatsapp' || igManual(t)) ? ` <button data-copy="${esc(t.caption || p.base_text || '')}">Copy text</button>` : ''}
-              ${(t.platform === 'whatsapp' || t.platform === 'twitter' || igManual(t)) && p.media_path ? ` <button data-share="${esc(p.media_path)}" data-text="${esc(t.caption || p.base_text || '')}">Share with image</button> <a href="/api/media/${esc(p.media_path)}" download>Download image</a>` : ''}
-              ${t.error ? `<div class="e">${esc(t.error)}</div>` : ''}</div>`
-            )
+              ${t.external_url ? ` <a href="${esc(t.external_url)}" target="_blank" rel="noopener"${manual ? ` data-copyon="${esc(cap)}"` : ''}>${linkLabel}</a>` : ''}
+              ${showDl ? ` <a href="/api/media/${esc(p.media_path)}" download>Download image</a>` : ''}
+              ${showShare ? ` <button data-share="${esc(p.media_path)}" data-text="${esc(cap)}">Share with image</button>` : ''}
+              ${manual ? ` <button data-copy="${esc(cap)}">Copy text</button>` : ''}
+              ${manual && t.status === 'published' ? '<div class="muted">Manual: image download karo, link kholo, image attach + text paste karke send.</div>' : ''}
+              ${t.error ? `<div class="e">${esc(t.error)}</div>` : ''}</div>`;
+            })
             .join('');
           const canRetry = p.targets.some((t) => t.status === 'failed');
           return `<div class="item">
@@ -310,6 +318,10 @@
             </div></div>`;
         })
         .join('');
+      // Opening the channel / Instagram copies the caption first, so it can just be pasted there.
+      el.querySelectorAll('[data-copyon]').forEach((a) => a.addEventListener('click', () => {
+        try { navigator.clipboard.writeText(a.dataset.copyon); } catch {}
+      }));
       el.querySelectorAll('[data-copy]').forEach((b) => (b.onclick = async () => {
         try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = 'Copied!'; } catch { b.textContent = 'Copy failed'; }
       }));
