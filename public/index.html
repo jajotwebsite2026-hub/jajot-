@@ -87,13 +87,15 @@
     <section id="view-accounts" class="hidden">
       <div class="card">
         <h2>Accounts</h2>
-        <p class="muted">Demo mode: posts are simulated. Real connect comes after platform approvals.</p>
+        <p class="muted">Instagram, Facebook, YouTube and LinkedIn: use the Connect buttons below and log in. Telegram, WhatsApp Channel, X and manual Instagram: use the quick buttons or the form.</p>
+        <p id="ac-quick"></p>
         <div class="row">
           <select id="ac-platform"></select>
           <input id="ac-label" placeholder="Name (e.g. Channel 1)">
           <input id="ac-handle" placeholder="@handle (optional)">
           <button id="ac-add" class="primary">Add</button>
         </div>
+        <div id="ac-hint" class="muted"></div>
         <div id="ac-err" class="err"></div>
         <div id="ig-note" class="muted"></div>
         <p>
@@ -118,6 +120,7 @@
 <script src="/app.js"></script>
 <script src="/emoji.js"></script>
 <script src="/ig.js"></script>
+<script src="/accounts-hint.js"></script>
 <script src="/pwa.js"></script>
 </body>
 </html>
