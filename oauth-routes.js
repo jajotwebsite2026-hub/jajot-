@@ -31,6 +31,7 @@ async function bot() {
 
 module.exports = function mount(app, { auth, db, jwt, JWT_SECRET }) {
   require('./pwa-routes')(app);
+  require('./ai-routes')(app, { auth });
 
   // ---- Public image card page for X (Twitter card). Opened by X's crawler when the post link is previewed. ----
   app.get('/x/:file', (req, res) => {
