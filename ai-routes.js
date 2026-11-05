@@ -1,5 +1,5 @@
 // "Write with AI": drafts or improves post text.
-// Free option: GEMINI_API_KEY (Google AI Studio free tier). Optional GEMINI_MODEL (default gemini-2.5-flash).
+// Free option: GEMINI_API_KEY (Google AI Studio free tier). Optional GEMINI_MODEL, GEMINI_FALLBACK_MODEL.
 // Paid option: ANTHROPIC_API_KEY. Optional AI_MODEL (default claude-haiku-5-5).
 // Gemini is used first when both are set.
 const TONES = {
@@ -7,6 +7,11 @@ const TONES = {
   friendly: 'warm, friendly and conversational',
   festive: 'festive, joyful and celebratory (suitable for an Indian festival such as Diwali)',
   short: 'short, punchy and attention-grabbing',
+};
+const LANGS = {
+  hinglish: 'Hinglish (Hindi written in English/Latin letters, the way people text in India)',
+  hindi: 'Hindi in Devanagari script',
+  english: 'English',
 };
 
 const hits = new Map(); // userId -> [timestamps]
@@ -18,9 +23,9 @@ function limited(uid) {
   hits.set(uid, a);
   return false;
 }
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function viaGemini(system, user) {
-  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+async function geminiOnce(model, system, user) {
   const gen = { maxOutputTokens: 1500, temperature: 0.7 };
   if (/2\.5-flash/.test(model)) gen.thinkingConfig = { thinkingBudget: 0 };
   const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
@@ -35,13 +40,32 @@ async function viaGemini(system, user) {
   const j = await r.json().catch(() => ({}));
   if (!r.ok) {
     const msg = (j.error && j.error.message) || 'HTTP ' + r.status;
-    if (r.status === 400 && /api key/i.test(msg)) return { error: 'AI key is not valid. Ask the admin to check it.' };
-    if (r.status === 401 || r.status === 403) return { error: 'AI key is not valid. Ask the admin to check it.' };
-    if (r.status === 429) return { error: 'AI free limit reached for now. Try again in a minute.' };
-    return { error: 'AI error: ' + msg };
+    return { status: r.status, msg };
   }
   const parts = (j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || [];
   return { text: parts.map((p) => p.text || '').join('').trim() };
+}
+
+async function viaGemini(system, user) {
+  const main = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+  const backup = process.env.GEMINI_FALLBACK_MODEL || 'gemini-flash-latest';
+  const plan = [main, main, backup, main];
+  let last = null;
+  for (let i = 0; i < plan.length; i++) {
+    const out = await geminiOnce(plan[i], system, user);
+    if (out.text) return out;
+    last = out;
+    if (out.status === 401 || out.status === 403 || (out.status === 400 && /api key/i.test(out.msg || ''))) {
+      return { error: 'AI key is not valid. Ask the admin to check it.' };
+    }
+    const busy = out.status === 503 || out.status === 429 || out.status === 500 || /demand|overload|unavailable|quota/i.test(out.msg || '');
+    const gone = out.status === 404 || /no longer available|not found/i.test(out.msg || '');
+    if (!busy && !gone && out.status) break;
+    if (busy) await sleep(1200 * (i + 1));
+  }
+  if (last && (last.status === 429)) return { error: 'AI free limit reached for now. Try again in a minute.' };
+  if (last && last.status === 503) return { error: 'AI is very busy right now. Press Write post once more.' };
+  return { error: 'AI error: ' + ((last && last.msg) || 'unknown') };
 }
 
 async function viaAnthropic(system, user) {
@@ -77,16 +101,17 @@ module.exports = function mount(app, { auth }) {
   app.post('/api/ai/write', auth, async (req, res) => {
     if (!enabled()) return res.status(400).json({ error: 'AI is not set up yet. Ask the admin to add the AI key.' });
     if (limited(req.user.id)) return res.status(429).json({ error: 'Too many AI requests this hour. Try again later.' });
-    const { mode, idea, text, tone } = req.body || {};
+    const { mode, idea, text, tone, lang } = req.body || {};
     const t = TONES[tone] || TONES.professional;
+    const l = LANGS[lang] || LANGS.hinglish;
     const src = String(mode === 'improve' ? text || '' : idea || '').trim().slice(0, 2000);
-    if (!src) return res.status(400).json({ error: mode === 'improve' ? 'Write some text in the post box first.' : 'Tell the AI what the post is about.' });
+    if (!src) return res.status(400).json({ error: mode === 'improve' ? 'Write some text in the post box first.' : 'Pick a topic button or type a few words.' });
 
     const system =
       'You write social media posts for a small business in India. ' +
-      'Write in the same language the user used (English, Hindi in Devanagari, or Hinglish in Latin letters). ' +
+      `Write the post in ${l}. ` +
       `Tone: ${t}. Keep it clear, accurate and under 600 characters. Use at most 3 fitting emojis and a few relevant hashtags only if they help. ` +
-      'Never invent facts, prices, dates, offers or contact details that the user did not give. ' +
+      'Never invent facts, prices, dates, offers, names or contact details that the user did not give. ' +
       'Output ONLY the final post text, with no quotes, no explanation and no preface.';
     const user = mode === 'improve'
       ? `Rewrite this draft so it reads well and professionally, keeping its meaning and facts exactly:\n\n${src}`
