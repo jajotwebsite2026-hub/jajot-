@@ -1,4 +1,4 @@
-// "Write with AI": drafts or improves post text.
+// "Write with AI": drafts or improves post text, and suggests related topics.
 // Providers, tried in this order when their key is set:
 //   1. GROQ_API_KEY      (free, very fast)  optional GROQ_MODEL
 //   2. GEMINI_API_KEY    (free, slower)     optional GEMINI_MODEL, GEMINI_FALLBACK_MODEL
@@ -194,11 +194,45 @@ module.exports = function mount(app, { auth }) {
     try {
       const t0 = Date.now();
       const out = await generate(system, user);
-      console.log(`[ai] ${out.text ? 'ok' : 'FAILED'} in ${Date.now() - t0} ms`);
+      console.log(`[ai] write ${out.text ? 'ok' : 'FAILED'} in ${Date.now() - t0} ms`);
       if (out.error) return res.status(502).json({ error: out.error });
       res.json({ text: out.text });
     } catch (e) {
       console.warn('[ai] crash', e && e.message);
+      res.status(502).json({ error: 'AI is not reachable right now. Try again.' });
+    }
+  });
+
+  // Related topic ideas from the user's recent post topics.
+  app.post('/api/ai/suggest', auth, async (req, res) => {
+    if (!enabled()) return res.status(400).json({ error: 'AI is not set up yet. Ask the admin to add the AI key.' });
+    if (limited(req.user.id)) return res.status(429).json({ error: 'Too many AI requests this hour. Try again later.' });
+    const { topics, lang } = req.body || {};
+    const l = LANGS[lang] || LANGS.hinglish;
+    const recent = (Array.isArray(topics) ? topics : [])
+      .map((x) => String(x || '').trim().slice(0, 120))
+      .filter(Boolean)
+      .slice(0, 6);
+    const system =
+      'You help a small business in India decide what to post on social media. ' +
+      'Suggest exactly 6 NEW post topic ideas. Each idea is one short line (max 10 words), specific and ready to turn into a post. ' +
+      `Write the ideas in ${l}. ` +
+      'Do not repeat the recent topics; make them related to the same business or theme. ' +
+      'Output only the 6 lines, no numbering, no bullets, no extra text.';
+    const user = recent.length
+      ? `Recent post topics of this business:\n- ${recent.join('\n- ')}\n\nSuggest 6 related new topics.`
+      : 'This business has no recent posts yet. It is Diwali season in India. Suggest 6 general post topics for a small business.';
+    try {
+      const out = await generate(system, user);
+      if (out.error) return res.status(502).json({ error: out.error });
+      const ideas = out.text
+        .split(/\r?\n/)
+        .map((s) => s.replace(/^[\s\-\*•\d\.\)]+/, '').replace(/^["']|["']$/g, '').trim())
+        .filter((s) => s && s.length <= 140)
+        .slice(0, 6);
+      if (!ideas.length) return res.status(502).json({ error: 'AI gave no ideas. Try again.' });
+      res.json({ ideas });
+    } catch (e) {
       res.status(502).json({ error: 'AI is not reachable right now. Try again.' });
     }
   });
