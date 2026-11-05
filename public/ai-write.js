@@ -1,5 +1,6 @@
 // "Write with AI": small button under the post box. One click opens a compact panel.
 // Pick a topic (or type), language, tap. Text (with emojis) goes straight into the post box.
+// "X Clear" wipes the post text in one tap.
 (function () {
   var TOPICS = [
     ['Diwali', 'Diwali wishes for our customers and their families'],
@@ -36,7 +37,9 @@
     wrap.id = 'ai-wrap';
     wrap.style.margin = '4px 0 8px';
     wrap.innerHTML =
-      '<button type="button" id="ai-open">✨ AI ▾</button> <span id="ai-note" class="muted" style="font-size:13px"></span>' +
+      '<button type="button" id="ai-open">✨ AI ▾</button> ' +
+      '<button type="button" id="ai-clear" title="Clear the text">✕ Clear</button> ' +
+      '<span id="ai-note" class="muted" style="font-size:13px"></span>' +
       '<div id="ai-panel" class="hidden">' +
       '<div class="row"><span class="muted">Tap topic:</span>' + chips + '</div>' +
       '<textarea id="ai-idea" rows="2" placeholder="Or type a few words, e.g. Diwali offer 20% off"></textarea>' +
@@ -68,6 +71,14 @@
     var st = store('ai-tone'); if (st) $('ai-tone').value = st;
     $('ai-lang').onchange = function () { store('ai-lang', this.value); };
     $('ai-tone').onchange = function () { store('ai-tone', this.value); };
+
+    $('ai-clear').onclick = function () {
+      ta.value = '';
+      $('ai-idea').value = '';
+      ta.dispatchEvent(new Event('input', { bubbles: true }));
+      note.textContent = '';
+      ta.focus();
+    };
 
     $('ai-open').onclick = function () {
       panel.classList.toggle('hidden');
