@@ -12,6 +12,10 @@
   function igManual(t) {
     return t.platform === 'instagram' && !!t.external_url && /instagram\.com\/?$/.test(t.external_url);
   }
+  // Personal Facebook profile added by hand = manual share (link points to the Facebook home page)
+  function fbManual(t) {
+    return t.platform === 'facebook' && !!t.external_url && /facebook\.com\/?$/.test(t.external_url);
+  }
 
   async function api(path, opts = {}) {
     const res = await fetch(path, { credentials: 'same-origin', ...opts });
@@ -291,10 +295,10 @@
           const targets = p.targets
             .map((t) => {
               const cap = t.caption || p.base_text || '';
-              const manual = t.platform === 'whatsapp' || igManual(t);
-              const linkLabel = t.platform === 'twitter' ? 'Open X &amp; post' : t.platform === 'whatsapp' ? 'Copy text &amp; open channel' : igManual(t) ? 'Copy text &amp; open Instagram' : 'link';
-              const showShare = (t.platform === 'twitter' || igManual(t)) && p.media_path;
-              const showDl = (t.platform === 'whatsapp' || t.platform === 'twitter' || igManual(t)) && p.media_path;
+              const manual = t.platform === 'whatsapp' || igManual(t) || fbManual(t);
+              const linkLabel = t.platform === 'twitter' ? 'Open X &amp; post' : t.platform === 'whatsapp' ? 'Copy text &amp; open channel' : igManual(t) ? 'Copy text &amp; open Instagram' : fbManual(t) ? 'Copy text &amp; open Facebook' : 'link';
+              const showShare = (t.platform === 'twitter' || igManual(t) || fbManual(t)) && p.media_path;
+              const showDl = (t.platform === 'whatsapp' || t.platform === 'twitter' || igManual(t) || fbManual(t)) && p.media_path;
               const badge = manual && t.status === 'published' ? 'manual share' : t.status;
               return `<div class="target"><span class="badge ${esc(t.status)}">${esc(badge)}</span>
               ${esc(t.label)} <span class="muted">(${esc(LABEL[t.platform])})</span>
@@ -318,7 +322,7 @@
             </div></div>`;
         })
         .join('');
-      // Opening the channel / Instagram copies the caption first, so it can just be pasted there.
+      // Opening the channel / Instagram / Facebook copies the caption first, so it can just be pasted there.
       el.querySelectorAll('[data-copyon]').forEach((a) => a.addEventListener('click', () => {
         try { navigator.clipboard.writeText(a.dataset.copyon); } catch {}
       }));
