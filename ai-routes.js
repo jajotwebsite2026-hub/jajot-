@@ -26,45 +26,51 @@ function limited(uid) {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function geminiOnce(model, system, user) {
-  const gen = { maxOutputTokens: 1500, temperature: 0.7 };
+  const gen = { maxOutputTokens: 800, temperature: 0.8 };
   if (/2\.5-flash/.test(model)) gen.thinkingConfig = { thinkingBudget: 0 };
-  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-    method: 'POST',
-    headers: { 'x-goog-api-key': process.env.GEMINI_API_KEY, 'content-type': 'application/json' },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: system }] },
-      contents: [{ role: 'user', parts: [{ text: user }] }],
-      generationConfig: gen,
-    }),
-  });
-  const j = await r.json().catch(() => ({}));
-  if (!r.ok) {
-    const msg = (j.error && j.error.message) || 'HTTP ' + r.status;
-    return { status: r.status, msg };
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), 15000);
+  try {
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+      method: 'POST',
+      signal: ac.signal,
+      headers: { 'x-goog-api-key': process.env.GEMINI_API_KEY, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: system }] },
+        contents: [{ role: 'user', parts: [{ text: user }] }],
+        generationConfig: gen,
+      }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return { status: r.status, msg: (j.error && j.error.message) || 'HTTP ' + r.status };
+    const parts = (j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || [];
+    return { text: parts.map((p) => p.text || '').join('').trim() };
+  } catch (e) {
+    return { status: 503, msg: 'timeout' };
+  } finally {
+    clearTimeout(timer);
   }
-  const parts = (j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || [];
-  return { text: parts.map((p) => p.text || '').join('').trim() };
 }
 
 async function viaGemini(system, user) {
-  const main = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
-  const backup = process.env.GEMINI_FALLBACK_MODEL || 'gemini-flash-latest';
-  const plan = [main, main, backup, main];
+  const chain = [
+    process.env.GEMINI_MODEL || 'gemini-flash-lite-latest',
+    process.env.GEMINI_FALLBACK_MODEL || 'gemini-flash-latest',
+    'gemini-3.8-flash',
+    process.env.GEMINI_MODEL || 'gemini-flash-lite-latest',
+  ];
   let last = null;
-  for (let i = 0; i < plan.length; i++) {
-    const out = await geminiOnce(plan[i], system, user);
+  for (let i = 0; i < chain.length; i++) {
+    const out = await geminiOnce(chain[i], system, user);
     if (out.text) return out;
     last = out;
     if (out.status === 401 || out.status === 403 || (out.status === 400 && /api key/i.test(out.msg || ''))) {
       return { error: 'AI key is not valid. Ask the admin to check it.' };
     }
-    const busy = out.status === 503 || out.status === 429 || out.status === 500 || /demand|overload|unavailable|quota/i.test(out.msg || '');
-    const gone = out.status === 404 || /no longer available|not found/i.test(out.msg || '');
-    if (!busy && !gone && out.status) break;
-    if (busy) await sleep(1200 * (i + 1));
+    if (i < chain.length - 1) await sleep(400);
   }
-  if (last && (last.status === 429)) return { error: 'AI free limit reached for now. Try again in a minute.' };
-  if (last && last.status === 503) return { error: 'AI is very busy right now. Press Write post once more.' };
+  if (last && last.status === 429) return { error: 'AI free limit reached for now. Try again in a minute.' };
+  if (last && last.status === 503) return { error: 'AI is very busy right now. Press the button once more.' };
   return { error: 'AI error: ' + ((last && last.msg) || 'unknown') };
 }
 
@@ -110,7 +116,9 @@ module.exports = function mount(app, { auth }) {
     const system =
       'You write social media posts for a small business in India. ' +
       `Write the post in ${l}. ` +
-      `Tone: ${t}. Keep it clear, accurate and under 600 characters. Use at most 3 fitting emojis and a few relevant hashtags only if they help. ` +
+      `Tone: ${t}. Keep it clear, accurate and under 500 characters. ` +
+      'Add 2 to 4 emojis that fit the meaning of the text (for example a diya and sparkles for Diwali, a shopping bag for a sale, a gift for an offer, a smile for thanks), placed naturally at the start, middle or end. ' +
+      'Add a few relevant hashtags only if they help. ' +
       'Never invent facts, prices, dates, offers, names or contact details that the user did not give. ' +
       'Output ONLY the final post text, with no quotes, no explanation and no preface.';
     const user = mode === 'improve'
