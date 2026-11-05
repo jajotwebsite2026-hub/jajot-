@@ -1,6 +1,6 @@
 // "Write with AI": drafts or improves post text, and suggests related topics.
 // Providers, tried in this order when their key is set:
-//   1. GROQ_API_KEY      (free, very fast)  optional GROQ_MODEL
+//   1. GROQ_API_KEY      (free, very fast)  model auto-discovered from Groq; optional GROQ_MODEL to force one
 //   2. GEMINI_API_KEY    (free, slower)     optional GEMINI_MODEL, GEMINI_FALLBACK_MODEL
 //   3. ANTHROPIC_API_KEY (paid)             optional AI_MODEL
 // Every failed attempt is logged (provider, model, status) so problems are visible in Railway logs.
@@ -33,9 +33,46 @@ function fail(provider, model, status, msg) {
 const isKeyBad = (o) => o.status === 401 || o.status === 403 || (o.status === 400 && /api key/i.test(o.msg || ''));
 
 // ---------- Groq (OpenAI-compatible) ----------
+let groqCache = { at: 0, models: [] };
+
+function groqScore(id) {
+  if (/llama.*(70b|versatile)|versatile/i.test(id)) return 5;
+  if (/llama.*(maverick|scout|4)/i.test(id)) return 4;
+  if (/qwen|kimi|mixtral|gemma/i.test(id)) return 3;
+  if (/llama/i.test(id)) return 2;
+  return 1; // e.g. reasoning models: usable but last
+}
+
+async function groqModels(force) {
+  if (process.env.GROQ_MODEL) return [process.env.GROQ_MODEL];
+  if (!force && groqCache.models.length && Date.now() - groqCache.at < 3600 * 1000) return groqCache.models;
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), 5000);
+  try {
+    const r = await fetch('https://api.groq.com/openai/v1/models', {
+      signal: ac.signal,
+      headers: { Authorization: 'Bearer ' + process.env.GROQ_API_KEY },
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { fail('groq', 'model-list', r.status, (j.error && j.error.message) || 'HTTP ' + r.status); return groqCache.models; }
+    const ids = (j.data || [])
+      .map((m) => m.id)
+      .filter((id) => id && !/whisper|guard|tts|playai|orpheus|embed|safeguard|transcri|vision-preview/i.test(id));
+    ids.sort((a, b) => groqScore(b) - groqScore(a));
+    groqCache = { at: Date.now(), models: ids.slice(0, 3) };
+    console.log('[ai] groq models chosen: ' + groqCache.models.join(', '));
+    return groqCache.models;
+  } catch (e) {
+    fail('groq', 'model-list', 503, 'timeout');
+    return groqCache.models;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function groqOnce(model, system, user) {
   const ac = new AbortController();
-  const timer = setTimeout(() => ac.abort(), 7000);
+  const timer = setTimeout(() => ac.abort(), 8000);
   try {
     const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -44,13 +81,15 @@ async function groqOnce(model, system, user) {
       body: JSON.stringify({
         model,
         temperature: 0.8,
-        max_tokens: 400,
+        max_tokens: 700,
         messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
       }),
     });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) return fail('groq', model, r.status, (j.error && j.error.message) || 'HTTP ' + r.status);
-    const text = ((j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || '').trim();
+    const text = ((j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || '')
+      .replace(/<think>[\s\S]*?<\/think>/g, '')
+      .trim();
     return text ? { text } : fail('groq', model, 502, 'empty');
   } catch (e) {
     return fail('groq', model, 503, 'timeout');
@@ -60,20 +99,31 @@ async function groqOnce(model, system, user) {
 }
 
 async function viaGroq(system, user) {
-  const models = [process.env.GROQ_MODEL || 'llama-3.3-70b-versatile', 'llama-3.1-8b-instant'];
-  let last = null;
-  for (const m of models) {
-    const out = await groqOnce(m, system, user);
-    if (out.text) return out;
-    last = out;
-    if (isKeyBad(out)) break;
+  let models = await groqModels(false);
+  let last = { status: 404, msg: 'no groq models' };
+  for (let round = 0; round < 2; round++) {
+    let all404 = models.length > 0;
+    for (const m of models) {
+      const out = await groqOnce(m, system, user);
+      if (out.text) return out;
+      last = out;
+      if (isKeyBad(out)) return out;
+      if (out.status !== 404) all404 = false;
+    }
+    if (round === 0 && (all404 || !models.length) && !process.env.GROQ_MODEL) {
+      models = await groqModels(true); // cached list went stale: refresh once
+      continue;
+    }
+    break;
   }
   return last;
 }
 
 // ---------- Gemini ----------
+const noThink = new Set(); // models that rejected thinkingConfig
+
 async function geminiCall(model, system, user, think) {
-  const gen = { maxOutputTokens: 400, temperature: 0.8 };
+  const gen = { maxOutputTokens: 600, temperature: 0.8 };
   if (think) gen.thinkingConfig = { thinkingBudget: 0 };
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(), 10000);
@@ -89,7 +139,10 @@ async function geminiCall(model, system, user, think) {
       }),
     });
     const j = await r.json().catch(() => ({}));
-    if (!r.ok) return fail('gemini', model, r.status, (j.error && j.error.message) || 'HTTP ' + r.status);
+    if (!r.ok) {
+      if (think && r.status === 400) { noThink.add(model); return { status: 400, msg: 'think-rejected', quiet: true }; }
+      return fail('gemini', model, r.status, (j.error && j.error.message) || 'HTTP ' + r.status);
+    }
     const parts = (j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || [];
     const text = parts.map((p) => p.text || '').join('').trim();
     return text ? { text } : fail('gemini', model, 502, 'empty');
@@ -100,8 +153,8 @@ async function geminiCall(model, system, user, think) {
   }
 }
 async function geminiModel(model, system, user) {
-  let out = await geminiCall(model, system, user, true);
-  if (!out.text && out.status === 400 && !/api key/i.test(out.msg || '')) out = await geminiCall(model, system, user, false);
+  let out = await geminiCall(model, system, user, !noThink.has(model));
+  if (!out.text && out.quiet) out = await geminiCall(model, system, user, false);
   return out;
 }
 function race(models, system, user) {
