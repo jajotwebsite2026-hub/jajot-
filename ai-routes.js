@@ -1,7 +1,7 @@
 // "Write with AI": drafts or improves post text.
 // Free option: GEMINI_API_KEY (Google AI Studio free tier). Optional GEMINI_MODEL, GEMINI_FALLBACK_MODEL.
 // Paid option: ANTHROPIC_API_KEY. Optional AI_MODEL (default claude-haiku-5-5).
-// Gemini is used first when both are set.
+// Gemini is used first when both are set. Two Gemini models are raced in parallel; the first answer wins.
 const TONES = {
   professional: 'professional, polished and trustworthy',
   friendly: 'warm, friendly and conversational',
@@ -23,13 +23,12 @@ function limited(uid) {
   hits.set(uid, a);
   return false;
 }
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function geminiOnce(model, system, user) {
-  const gen = { maxOutputTokens: 800, temperature: 0.8 };
-  if (/2\.5-flash/.test(model)) gen.thinkingConfig = { thinkingBudget: 0 };
+async function geminiCall(model, system, user, think) {
+  const gen = { maxOutputTokens: 400, temperature: 0.8 };
+  if (think) gen.thinkingConfig = { thinkingBudget: 0 };
   const ac = new AbortController();
-  const timer = setTimeout(() => ac.abort(), 15000);
+  const timer = setTimeout(() => ac.abort(), 12000);
   try {
     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
       method: 'POST',
@@ -44,7 +43,8 @@ async function geminiOnce(model, system, user) {
     const j = await r.json().catch(() => ({}));
     if (!r.ok) return { status: r.status, msg: (j.error && j.error.message) || 'HTTP ' + r.status };
     const parts = (j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || [];
-    return { text: parts.map((p) => p.text || '').join('').trim() };
+    const text = parts.map((p) => p.text || '').join('').trim();
+    return text ? { text } : { status: 502, msg: 'empty' };
   } catch (e) {
     return { status: 503, msg: 'timeout' };
   } finally {
@@ -52,26 +52,41 @@ async function geminiOnce(model, system, user) {
   }
 }
 
+// One model: try with thinking off; if the model rejects that setting, retry plain.
+async function geminiModel(model, system, user) {
+  let out = await geminiCall(model, system, user, true);
+  if (!out.text && out.status === 400 && !/api key/i.test(out.msg || '')) out = await geminiCall(model, system, user, false);
+  return out;
+}
+
+// First success wins; resolves with the last failure if all fail.
+function race(models, system, user) {
+  return new Promise((resolve) => {
+    let left = models.length;
+    let last = null;
+    models.forEach((m) => {
+      geminiModel(m, system, user).then((out) => {
+        if (out.text) return resolve(out);
+        last = out;
+        if (--left === 0) resolve(last);
+      });
+    });
+  });
+}
+
 async function viaGemini(system, user) {
-  const chain = [
-    process.env.GEMINI_MODEL || 'gemini-flash-lite-latest',
-    process.env.GEMINI_FALLBACK_MODEL || 'gemini-flash-latest',
-    'gemini-3.8-flash',
-    process.env.GEMINI_MODEL || 'gemini-flash-lite-latest',
-  ];
-  let last = null;
-  for (let i = 0; i < chain.length; i++) {
-    const out = await geminiOnce(chain[i], system, user);
-    if (out.text) return out;
-    last = out;
-    if (out.status === 401 || out.status === 403 || (out.status === 400 && /api key/i.test(out.msg || ''))) {
-      return { error: 'AI key is not valid. Ask the admin to check it.' };
-    }
-    if (i < chain.length - 1) await sleep(400);
+  const a = process.env.GEMINI_MODEL || 'gemini-flash-lite-latest';
+  const b = process.env.GEMINI_FALLBACK_MODEL || 'gemini-flash-latest';
+  let out = await race(a === b ? [a] : [a, b], system, user);
+  if (!out.text) {
+    const bad = out.status === 401 || out.status === 403 || (out.status === 400 && /api key/i.test(out.msg || ''));
+    if (bad) return { error: 'AI key is not valid. Ask the admin to check it.' };
+    out = await geminiModel('gemini-3.8-flash', system, user);
   }
-  if (last && last.status === 429) return { error: 'AI free limit reached for now. Try again in a minute.' };
-  if (last && last.status === 503) return { error: 'AI is very busy right now. Press the button once more.' };
-  return { error: 'AI error: ' + ((last && last.msg) || 'unknown') };
+  if (out.text) return out;
+  if (out.status === 429) return { error: 'AI free limit reached for now. Try again in a minute.' };
+  if (out.status === 503) return { error: 'AI is very busy right now. Press the button once more.' };
+  return { error: 'AI error: ' + (out.msg || 'unknown') };
 }
 
 async function viaAnthropic(system, user) {
@@ -84,7 +99,7 @@ async function viaAnthropic(system, user) {
     },
     body: JSON.stringify({
       model: process.env.AI_MODEL || 'claude-haiku-5-5',
-      max_tokens: 700,
+      max_tokens: 500,
       system,
       messages: [{ role: 'user', content: user }],
     }),
@@ -110,15 +125,15 @@ module.exports = function mount(app, { auth }) {
     const { mode, idea, text, tone, lang } = req.body || {};
     const t = TONES[tone] || TONES.professional;
     const l = LANGS[lang] || LANGS.hinglish;
-    const src = String(mode === 'improve' ? text || '' : idea || '').trim().slice(0, 2000);
+    const src = String(mode === 'improve' ? text || '' : idea || '').trim().slice(0, 1500);
     if (!src) return res.status(400).json({ error: mode === 'improve' ? 'Write some text in the post box first.' : 'Pick a topic button or type a few words.' });
 
     const system =
       'You write social media posts for a small business in India. ' +
       `Write the post in ${l}. ` +
-      `Tone: ${t}. Keep it clear, accurate and under 500 characters. ` +
-      'Add 2 to 4 emojis that fit the meaning of the text (for example a diya and sparkles for Diwali, a shopping bag for a sale, a gift for an offer, a smile for thanks), placed naturally at the start, middle or end. ' +
-      'Add a few relevant hashtags only if they help. ' +
+      `Tone: ${t}. Keep it clear, accurate and under 350 characters. ` +
+      'Add 2 to 4 emojis that fit the meaning of the text (for example a diya and sparkles for Diwali, a shopping bag for a sale, a gift for an offer, a smile for thanks). ' +
+      'Add 2 or 3 relevant hashtags only if they help. ' +
       'Never invent facts, prices, dates, offers, names or contact details that the user did not give. ' +
       'Output ONLY the final post text, with no quotes, no explanation and no preface.';
     const user = mode === 'improve'
