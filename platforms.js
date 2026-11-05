@@ -29,8 +29,8 @@ const NEEDS_MEDIA = {
 };
 
 // These platforms only work through the "Connect ... (real)" buttons.
-// (Instagram added by hand is manual-share mode, see adapter below.)
-const CONNECT_ONLY = ['facebook', 'youtube', 'linkedin'];
+// (Instagram and Facebook profile added by hand are manual-share mode, see adapter below.)
+const CONNECT_ONLY = ['youtube', 'linkedin'];
 
 function validate(platform, caption, mediaPath, mediaType) {
   if (!PLATFORMS.includes(platform)) return `Unknown platform: ${platform}`;
@@ -74,8 +74,13 @@ for (const p of PLATFORMS) {
       if (p === 'instagram' && args.account.mode === 'demo') {
         return { url: 'https://www.instagram.com/' };
       }
+      // Personal Facebook profile added by hand: Meta has no posting API for profiles, so manual-share mode.
+      // Open Facebook; the app offers Copy text / Share with image.
+      if (p === 'facebook' && args.account.mode === 'demo') {
+        return { url: 'https://www.facebook.com/' };
+      }
       if (args.account.mode === 'demo') {
-        // A hand-added Facebook/YouTube/LinkedIn account is NOT connected. Never fake a successful post.
+        // A hand-added YouTube/LinkedIn account is NOT connected. Never fake a successful post.
         if (CONNECT_ONLY.includes(p)) {
           throw new Error(`This ${p} account is not connected. Remove it and use the "Connect ${p}" button in the Accounts tab.`);
         }
