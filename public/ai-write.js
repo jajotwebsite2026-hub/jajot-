@@ -1,6 +1,6 @@
 // "Write with AI": small button under the post box. One click opens a compact panel.
 // Pick a topic (or type), language, tap. Text (with emojis) goes straight into the post box.
-// "X Clear" wipes the post text in one tap.
+// A tiny x inside the post box (top right) clears the text in one tap.
 (function () {
   var TOPICS = [
     ['Diwali', 'Diwali wishes for our customers and their families'],
@@ -26,8 +26,26 @@
       '#ai-wrap select{padding:4px 6px;width:auto;min-height:0}' +
       '#ai-wrap textarea{padding:6px;margin:6px 0}' +
       '#ai-panel{margin-top:6px;padding:8px;border:1px solid #d8dbe6;border-radius:8px}' +
-      '#ai-panel .row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0}';
+      '#ai-panel .row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0}' +
+      '#ai-ta-wrap{position:relative}' +
+      '#c-text{padding-right:30px;box-sizing:border-box}' +
+      '#ai-x{position:absolute;top:7px;right:8px;width:20px;height:20px;line-height:18px;padding:0;min-height:0;' +
+      'border:0;border-radius:50%;background:#e4e6ee;color:#444;font-size:14px;cursor:pointer;text-align:center}' +
+      '#ai-x:hover{background:#cfd3e0}';
     document.head.appendChild(css);
+
+    // wrap the post box so the x can sit inside it
+    var box = document.createElement('div');
+    box.id = 'ai-ta-wrap';
+    ta.parentNode.insertBefore(box, ta);
+    box.appendChild(ta);
+    var x = document.createElement('button');
+    x.type = 'button';
+    x.id = 'ai-x';
+    x.title = 'Clear text';
+    x.textContent = '×';
+    x.style.display = 'none';
+    box.appendChild(x);
 
     var chips = TOPICS.map(function (t, i) {
       return '<button type="button" class="ai-topic" data-i="' + i + '">' + t[0] + '</button>';
@@ -38,7 +56,6 @@
     wrap.style.margin = '4px 0 8px';
     wrap.innerHTML =
       '<button type="button" id="ai-open">✨ AI ▾</button> ' +
-      '<button type="button" id="ai-clear" title="Clear the text">✕ Clear</button> ' +
       '<span id="ai-note" class="muted" style="font-size:13px"></span>' +
       '<div id="ai-panel" class="hidden">' +
       '<div class="row"><span class="muted">Tap topic:</span>' + chips + '</div>' +
@@ -61,24 +78,26 @@
       '<button type="button" id="ai-improve">Improve my text</button>' +
       '</div>' +
       '</div>';
-    ta.parentNode.insertBefore(wrap, ta.nextSibling);
+    box.parentNode.insertBefore(wrap, box.nextSibling);
 
     var $ = function (id) { return document.getElementById(id); };
     var panel = $('ai-panel');
     var note = $('ai-note');
 
-    var sl = store('ai-lang'); if (sl) $('ai-lang').value = sl;
-    var st = store('ai-tone'); if (st) $('ai-tone').value = st;
-    $('ai-lang').onchange = function () { store('ai-lang', this.value); };
-    $('ai-tone').onchange = function () { store('ai-tone', this.value); };
-
-    $('ai-clear').onclick = function () {
+    function syncX() { x.style.display = ta.value ? 'block' : 'none'; }
+    ta.addEventListener('input', syncX);
+    setInterval(syncX, 500); // also catches the box being emptied after a post
+    x.onclick = function () {
       ta.value = '';
-      $('ai-idea').value = '';
       ta.dispatchEvent(new Event('input', { bubbles: true }));
       note.textContent = '';
       ta.focus();
     };
+
+    var sl = store('ai-lang'); if (sl) $('ai-lang').value = sl;
+    var st = store('ai-tone'); if (st) $('ai-tone').value = st;
+    $('ai-lang').onchange = function () { store('ai-lang', this.value); };
+    $('ai-tone').onchange = function () { store('ai-tone', this.value); };
 
     $('ai-open').onclick = function () {
       panel.classList.toggle('hidden');
@@ -105,9 +124,9 @@
         body: JSON.stringify(body),
       })
         .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
-        .then(function (x) {
-          if (!x.ok) { note.textContent = x.j.error || 'Failed'; return; }
-          ta.value = x.j.text;
+        .then(function (res) {
+          if (!res.ok) { note.textContent = res.j.error || 'Failed'; return; }
+          ta.value = res.j.text;
           ta.dispatchEvent(new Event('input', { bubbles: true }));
           panel.classList.add('hidden');
           $('ai-open').textContent = '✨ AI ▾';
