@@ -1,5 +1,7 @@
-// "Write with AI": drafts or improves post text through the Anthropic API.
-// Env: ANTHROPIC_API_KEY (required), AI_MODEL (optional, default claude-haiku-5-5).
+// "Write with AI": drafts or improves post text.
+// Free option: GEMINI_API_KEY (Google AI Studio free tier). Optional GEMINI_MODEL (default gemini-2.5-flash).
+// Paid option: ANTHROPIC_API_KEY. Optional AI_MODEL (default claude-haiku-5-5).
+// Gemini is used first when both are set.
 const TONES = {
   professional: 'professional, polished and trustworthy',
   friendly: 'warm, friendly and conversational',
@@ -17,11 +19,63 @@ function limited(uid) {
   return false;
 }
 
+async function viaGemini(system, user) {
+  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+  const gen = { maxOutputTokens: 1500, temperature: 0.7 };
+  if (/2\.5-flash/.test(model)) gen.thinkingConfig = { thinkingBudget: 0 };
+  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+    method: 'POST',
+    headers: { 'x-goog-api-key': process.env.GEMINI_API_KEY, 'content-type': 'application/json' },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: system }] },
+      contents: [{ role: 'user', parts: [{ text: user }] }],
+      generationConfig: gen,
+    }),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    const msg = (j.error && j.error.message) || 'HTTP ' + r.status;
+    if (r.status === 400 && /api key/i.test(msg)) return { error: 'AI key is not valid. Ask the admin to check it.' };
+    if (r.status === 401 || r.status === 403) return { error: 'AI key is not valid. Ask the admin to check it.' };
+    if (r.status === 429) return { error: 'AI free limit reached for now. Try again in a minute.' };
+    return { error: 'AI error: ' + msg };
+  }
+  const parts = (j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || [];
+  return { text: parts.map((p) => p.text || '').join('').trim() };
+}
+
+async function viaAnthropic(system, user) {
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': process.env.ANTHROPIC_API_KEY,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: process.env.AI_MODEL || 'claude-haiku-5-5',
+      max_tokens: 700,
+      system,
+      messages: [{ role: 'user', content: user }],
+    }),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    const msg = (j.error && j.error.message) || 'HTTP ' + r.status;
+    if (r.status === 401) return { error: 'AI key is not valid. Ask the admin to check it.' };
+    if (r.status === 400 && /credit|balance/i.test(msg)) return { error: 'AI credits are finished. Ask the admin to add credits.' };
+    return { error: 'AI error: ' + msg };
+  }
+  return { text: ((j.content || []).filter((c) => c.type === 'text').map((c) => c.text).join('\n') || '').trim() };
+}
+
 module.exports = function mount(app, { auth }) {
-  app.get('/api/ai/status', auth, (req, res) => res.json({ enabled: Boolean(process.env.ANTHROPIC_API_KEY) }));
+  const enabled = () => Boolean(process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY);
+
+  app.get('/api/ai/status', auth, (req, res) => res.json({ enabled: enabled() }));
 
   app.post('/api/ai/write', auth, async (req, res) => {
-    if (!process.env.ANTHROPIC_API_KEY) return res.status(400).json({ error: 'AI is not set up yet. Ask the admin to add the AI key.' });
+    if (!enabled()) return res.status(400).json({ error: 'AI is not set up yet. Ask the admin to add the AI key.' });
     if (limited(req.user.id)) return res.status(429).json({ error: 'Too many AI requests this hour. Try again later.' });
     const { mode, idea, text, tone } = req.body || {};
     const t = TONES[tone] || TONES.professional;
@@ -39,30 +93,10 @@ module.exports = function mount(app, { auth }) {
       : `Write a post about this:\n\n${src}`;
 
     try {
-      const r = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'x-api-key': process.env.ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01',
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: process.env.AI_MODEL || 'claude-haiku-5-5',
-          max_tokens: 700,
-          system,
-          messages: [{ role: 'user', content: user }],
-        }),
-      });
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok) {
-        const msg = (j.error && j.error.message) || 'HTTP ' + r.status;
-        if (r.status === 401) return res.status(502).json({ error: 'AI key is not valid. Ask the admin to check it.' });
-        if (r.status === 400 && /credit|balance/i.test(msg)) return res.status(502).json({ error: 'AI credits are finished. Ask the admin to add credits.' });
-        return res.status(502).json({ error: 'AI error: ' + msg });
-      }
-      const out = ((j.content || []).filter((c) => c.type === 'text').map((c) => c.text).join('\n') || '').trim();
-      if (!out) return res.status(502).json({ error: 'AI gave an empty answer. Try again.' });
-      res.json({ text: out });
+      const out = process.env.GEMINI_API_KEY ? await viaGemini(system, user) : await viaAnthropic(system, user);
+      if (out.error) return res.status(502).json({ error: out.error });
+      if (!out.text) return res.status(502).json({ error: 'AI gave an empty answer. Try again.' });
+      res.json({ text: out.text });
     } catch (e) {
       res.status(502).json({ error: 'AI is not reachable right now. Try again.' });
     }
