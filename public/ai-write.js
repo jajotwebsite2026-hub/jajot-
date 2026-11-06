@@ -1,6 +1,7 @@
 // "Write with AI": small button under the post box. One click opens a compact panel.
 // Tap a topic, one of your recent topics, or an AI idea. Text (with emojis) goes straight into the post box.
 // A tiny x inside the post box and inside the topic box clears the text in one tap.
+// Press Enter in the topic box to write the post (Shift+Enter = new line).
 (function () {
   var TOPICS = [
     ['Diwali', 'Diwali wishes for our customers and their families'],
@@ -90,7 +91,7 @@
       '<div class="row hidden" id="ai-recent-row"><span class="muted">Recent:</span></div>' +
       '<div class="row"><button type="button" id="ai-ideas">💡 Ideas for me</button></div>' +
       '<div class="row hidden" id="ai-ideas-row"></div>' +
-      '<div id="ai-idea-box"><textarea id="ai-idea" rows="2" placeholder="Or type a few words, e.g. Diwali offer 20% off"></textarea></div>' +
+      '<div id="ai-idea-box"><textarea id="ai-idea" rows="2" placeholder="Type a few words, e.g. Diwali offer 20% off, then press Enter"></textarea></div>' +
       '<div class="row">' +
       '<select id="ai-lang">' +
       '<option value="hinglish">Hinglish</option>' +
@@ -116,6 +117,14 @@
     var note = $('ai-note');
 
     addClear($('ai-idea'));
+
+    // Enter in the topic box = Write post. Shift+Enter = new line.
+    $('ai-idea').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+        e.preventDefault();
+        run('write');
+      }
+    });
 
     var sl = store('ai-lang'); if (sl) $('ai-lang').value = sl;
     var st = store('ai-tone'); if (st) $('ai-tone').value = st;
@@ -175,6 +184,7 @@
       note.textContent = '';
       if (!panel.classList.contains('hidden')) {
         renderRecent();
+        $('ai-idea').focus();
         fetch('/api/ai/status', { credentials: 'same-origin' })
           .then(function (r) { return r.json(); })
           .then(function (j) { if (!j.enabled) note.textContent = 'AI is not set up yet.'; })
