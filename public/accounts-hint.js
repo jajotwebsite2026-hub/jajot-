@@ -1,4 +1,4 @@
-// Accounts tab helper: Connect Telegram (one tap), Connect Threads, one-tap Connect X / WhatsApp Channel,
+// Accounts tab helper: Connect Telegram (one tap), Connect Threads, one-tap Connect X / WhatsApp Channel / Website,
 // all in the same blue row as the other Connect buttons.
 // Also a hint line and clear badges instead of "demo".
 (function () {
@@ -27,12 +27,17 @@
       text: 'Threads: use the Connect Threads button (automatic posting).',
       ph: '@threads_username',
     },
+    website: {
+      text: 'Website: tap Connect Website. Posts go straight to your site Updates page (first line = title, rest = text, image/video attached).',
+      ph: 'agtechnicals.com',
+    },
   };
 
   // One-tap buttons: ask for one thing, add the account, refresh the list.
   var ONE_TAP = [
     { platform: 'twitter', btn: 'Connect X', ask: 'Your X username (example @jajot_india)', label: function (v) { return 'X ' + v; }, handle: function (v) { return v.replace(/^https?:\/\/(www\.)?(x|twitter)\.com\//i, '@').replace(/^@?/, '@').replace(/[/?].*$/, ''); } },
     { platform: 'whatsapp', btn: 'Connect WhatsApp Channel', ask: 'Paste your WhatsApp Channel link (https://whatsapp.com/channel/...)', label: function () { return 'WhatsApp Channel'; }, handle: function (v) { return v; }, check: function (v) { return /^https?:\/\//i.test(v) ? '' : 'Paste the full channel link starting with https://'; } },
+    { platform: 'website', btn: 'Connect Website', ask: 'Website to post to (press OK)', def: 'agtechnicals.com', label: function (h) { return 'Website ' + h; }, handle: function (v) { return v.replace(/^https?:\/\//i, '').replace(/\/.*$/, ''); } },
   ];
 
   // Replace the technical "demo" badge with something a client understands.
@@ -45,6 +50,7 @@
       if (!b || !m || b.textContent.trim() !== 'demo') return;
       var t = m.textContent;
       if (/Telegram/.test(t)) b.textContent = 'auto (bot)';
+      else if (/Website/.test(t)) b.textContent = 'auto (key)';
       else if (/Instagram|Facebook|X \(Twitter\)|WhatsApp/.test(t)) b.textContent = 'manual share';
       else b.textContent = 'not connected';
     });
@@ -126,11 +132,11 @@
     var thBtn = addBtn('Connect Threads');
     thBtn.onclick = function () { window.location.href = '/auth/threads/start'; };
 
-    // --- One-tap Connect X / WhatsApp Channel ---
+    // --- One-tap Connect X / WhatsApp Channel / Website ---
     ONE_TAP.forEach(function (o) {
       var b = addBtn(o.btn);
       b.onclick = function () {
-        var v = window.prompt(o.ask);
+        var v = window.prompt(o.ask, o.def || '');
         if (v === null) return;
         v = v.trim();
         if (!v) { msg.textContent = 'Nothing entered.'; return; }
