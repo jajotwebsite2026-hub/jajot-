@@ -1,5 +1,5 @@
-// Accounts tab helper: Connect Telegram (one tap), Connect Threads, one-tap Connect X / WhatsApp Channel / Instagram (manual) /
-// Facebook Profile (manual), all in the same blue row as the other Connect buttons.
+// Accounts tab helper: Connect Telegram (one tap), Connect Threads, one-tap Connect X / WhatsApp Channel,
+// all in the same blue row as the other Connect buttons.
 // Also a hint line and clear badges instead of "demo".
 (function () {
   var HINTS = {
@@ -16,11 +16,11 @@
       ph: '@handle',
     },
     instagram: {
-      text: 'Instagram by hand (manual): tap Connect Instagram (manual) and type your @username. After posting, open History and use Share with image, then choose Instagram. For automatic posting use Connect Instagram (real).',
+      text: 'Instagram: use the Connect Instagram (real) button for automatic posting.',
       ph: '@instagram_username',
     },
     facebook: {
-      text: 'Facebook personal profile (manual): tap Connect Facebook Profile (manual) and type your name. After posting, open History and use Share with image, then choose Facebook. For a business Page use Connect Facebook Page (real).',
+      text: 'Facebook: use the Connect Facebook Page (real) button for automatic posting to a business Page.',
       ph: 'Your Facebook name',
     },
     threads: {
@@ -33,8 +33,6 @@
   var ONE_TAP = [
     { platform: 'twitter', btn: 'Connect X', ask: 'Your X username (example @jajot_india)', label: function (v) { return 'X ' + v; }, handle: function (v) { return v.replace(/^https?:\/\/(www\.)?(x|twitter)\.com\//i, '@').replace(/^@?/, '@').replace(/[/?].*$/, ''); } },
     { platform: 'whatsapp', btn: 'Connect WhatsApp Channel', ask: 'Paste your WhatsApp Channel link (https://whatsapp.com/channel/...)', label: function () { return 'WhatsApp Channel'; }, handle: function (v) { return v; }, check: function (v) { return /^https?:\/\//i.test(v) ? '' : 'Paste the full channel link starting with https://'; } },
-    { platform: 'instagram', btn: 'Connect Instagram (manual)', ask: 'Your Instagram username (example @jajotindia)', label: function (v) { return 'Instagram ' + v; }, handle: function (v) { return v.replace(/^https?:\/\/(www\.)?instagram\.com\//i, '@').replace(/^@?/, '@').replace(/[/?].*$/, ''); } },
-    { platform: 'facebook', btn: 'Connect Facebook Profile (manual)', ask: 'Your Facebook name (example Ridhima Verma)', label: function (v) { return 'Facebook ' + v; }, handle: function (v) { return v; } },
   ];
 
   // Replace the technical "demo" badge with something a client understands.
@@ -128,7 +126,7 @@
     var thBtn = addBtn('Connect Threads');
     thBtn.onclick = function () { window.location.href = '/auth/threads/start'; };
 
-    // --- One-tap Connect X / WhatsApp Channel / Instagram (manual) / Facebook Profile (manual) ---
+    // --- One-tap Connect X / WhatsApp Channel ---
     ONE_TAP.forEach(function (o) {
       var b = addBtn(o.btn);
       b.onclick = function () {
