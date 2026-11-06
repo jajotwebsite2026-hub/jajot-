@@ -9,6 +9,7 @@ const youtube = require('./youtube');
 const linkedin = require('./linkedin');
 const telegram = require('./telegram');
 const threads = require('./threads');
+const website = require('./website');
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, 'uploads');
 
@@ -21,6 +22,7 @@ const LIMITS = {
   whatsapp: 4096,
   telegram: 4096,
   threads: 500,
+  website: 5000,
 };
 
 const PLATFORMS = Object.keys(LIMITS);
@@ -67,6 +69,11 @@ for (const p of PLATFORMS) {
         const h = String(args.account.handle || '');
         if (/^https?:\/\//.test(h)) return { url: h };
         return { url: `https://wa.me/?${new URLSearchParams({ text: args.caption || '' })}` };
+      }
+      // Website: posts straight to the site's own /api/posts (key lives in server Variables, not in the database).
+      if (p === 'website') {
+        const mediaUrl = args.mediaPath ? `${instagram.publicBase()}/pub/${args.mediaPath}` : null;
+        return website.publish({ ...args, mediaUrl });
       }
       // Telegram: real posting whenever the bot token is set (account handle = channel @username).
       if (p === 'telegram' && telegram.configured()) {
