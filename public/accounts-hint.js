@@ -1,4 +1,4 @@
-// Accounts tab helper: Connect Telegram (one tap), one-tap Connect X / WhatsApp Channel / Instagram (manual) /
+// Accounts tab helper: Connect Telegram (one tap), Connect Threads, one-tap Connect X / WhatsApp Channel / Instagram (manual) /
 // Facebook Profile (manual), all in the same blue row as the other Connect buttons.
 // Also a hint line and clear badges instead of "demo".
 (function () {
@@ -22,6 +22,10 @@
     facebook: {
       text: 'Facebook personal profile (manual): tap Connect Facebook Profile (manual) and type your name. After posting, open History and use Share with image, then choose Facebook. For a business Page use Connect Facebook Page (real).',
       ph: 'Your Facebook name',
+    },
+    threads: {
+      text: 'Threads: use the Connect Threads button (automatic posting).',
+      ph: '@threads_username',
     },
   };
 
@@ -119,6 +123,10 @@
         })
         .catch(function () { msg.textContent = 'Network error, try again.'; });
     };
+
+    // --- Connect Threads (real OAuth) ---
+    var thBtn = addBtn('Connect Threads');
+    thBtn.onclick = function () { window.location.href = '/auth/threads/start'; };
 
     // --- One-tap Connect X / WhatsApp Channel / Instagram (manual) / Facebook Profile (manual) ---
     ONE_TAP.forEach(function (o) {
