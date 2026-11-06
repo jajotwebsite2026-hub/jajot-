@@ -8,6 +8,7 @@ const facebook = require('./facebook');
 const youtube = require('./youtube');
 const linkedin = require('./linkedin');
 const telegram = require('./telegram');
+const threads = require('./threads');
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, 'uploads');
 
@@ -19,6 +20,7 @@ const LIMITS = {
   youtube: 5000,
   whatsapp: 4096,
   telegram: 4096,
+  threads: 500,
 };
 
 const PLATFORMS = Object.keys(LIMITS);
@@ -30,7 +32,7 @@ const NEEDS_MEDIA = {
 
 // These platforms only work through the "Connect ... (real)" buttons.
 // (Instagram and Facebook profile added by hand are manual-share mode, see adapter below.)
-const CONNECT_ONLY = ['youtube', 'linkedin'];
+const CONNECT_ONLY = ['youtube', 'linkedin', 'threads'];
 
 function validate(platform, caption, mediaPath, mediaType) {
   if (!PLATFORMS.includes(platform)) return `Unknown platform: ${platform}`;
@@ -80,7 +82,7 @@ for (const p of PLATFORMS) {
         return { url: 'https://www.facebook.com/' };
       }
       if (args.account.mode === 'demo') {
-        // A hand-added YouTube/LinkedIn account is NOT connected. Never fake a successful post.
+        // A hand-added YouTube/LinkedIn/Threads account is NOT connected. Never fake a successful post.
         if (CONNECT_ONLY.includes(p)) {
           throw new Error(`This ${p} account is not connected. Remove it and use the "Connect ${p}" button in the Accounts tab.`);
         }
@@ -93,6 +95,10 @@ for (const p of PLATFORMS) {
       if (p === 'facebook' && args.account.mode === 'live') {
         const mediaUrl = args.mediaPath ? `${instagram.publicBase()}/pub/${args.mediaPath}` : null;
         return facebook.publish({ ...args, mediaUrl });
+      }
+      if (p === 'threads' && args.account.mode === 'live') {
+        const mediaUrl = args.mediaPath ? `${instagram.publicBase()}/pub/${args.mediaPath}` : null;
+        return threads.publish({ ...args, mediaUrl });
       }
       if (p === 'youtube' && args.account.mode === 'live') {
         return youtube.publish({ ...args, filePath: path.join(UPLOAD_DIR, args.mediaPath || '') });

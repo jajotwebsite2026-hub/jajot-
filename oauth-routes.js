@@ -1,4 +1,4 @@
-// Generic "Connect <platform>" OAuth routes for Facebook, YouTube and LinkedIn,
+// Generic "Connect <platform>" OAuth routes for Facebook, YouTube, LinkedIn and Threads,
 // plus the one-tap Telegram connect (deep link makes the bot admin, then we scan for the channel),
 // plus /x/:file, a public card page so an X post link shows the image.
 const fs = require('fs');
@@ -7,6 +7,7 @@ const providers = {
   facebook: require('./facebook'),
   youtube: require('./youtube'),
   linkedin: require('./linkedin'),
+  threads: require('./threads'),
 };
 const ig = require('./instagram');
 const tg = require('./telegram');
