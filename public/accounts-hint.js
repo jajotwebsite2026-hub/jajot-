@@ -1,4 +1,4 @@
-// Accounts tab helper: Connect Telegram (one tap), Connect Threads, Connect Google Business, Connect Pinterest, one-tap Connect X / WhatsApp Channel / Website,
+// Accounts tab helper: Connect Telegram (one tap), Connect Threads, Connect Google Business, Connect Pinterest, Connect Email, one-tap Connect X / WhatsApp Channel / Website,
 // all in the same blue row as the other Connect buttons.
 // Also a hint line and clear badges instead of "demo".
 (function () {
@@ -34,6 +34,10 @@
     pinterest: {
       text: 'Pinterest: use the Connect Pinterest button. Every board becomes one account. A Pin needs an image; first line = title, rest = description.',
       ph: '@pinterest_username',
+    },
+    email: {
+      text: 'Email: tap Connect Email, enter your Gmail, a Gmail App Password and who should receive the mail. Posts are sent from your Gmail (first line = subject, image attached).',
+      ph: '',
     },
     website: {
       text: 'Website: tap Connect Website. Posts go straight to your site Updates page (first line = title, rest = text, image/video attached).',
@@ -148,6 +152,34 @@
     var pinBtn = addBtn('Connect Pinterest');
     pinBtn.onclick = function () { window.location.href = '/auth/pinterest/start'; };
 
+    // --- Connect Email (client's own Gmail + App Password) ---
+    var emBtn = addBtn('Connect Email');
+    emBtn.onclick = function () {
+      var gmail = window.prompt('Your Gmail address (the mail will be sent from it)', '');
+      if (gmail === null) return;
+      gmail = gmail.trim();
+      if (!gmail) { msg.textContent = 'Nothing entered.'; return; }
+      var pass = window.prompt('Gmail App Password (16 letters). Create it at myaccount.google.com/apppasswords (2-Step Verification must be on).', '');
+      if (pass === null) return;
+      if (!pass.trim()) { msg.textContent = 'Nothing entered.'; return; }
+      var to = window.prompt('Who should receive the mail? One or more emails, separated by comma', gmail);
+      if (to === null) return;
+      msg.textContent = 'Checking Gmail login...';
+      fetch('/api/email/connect', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gmail: gmail, appPassword: pass, to: to }),
+      })
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (x) {
+          if (!x.ok) { msg.textContent = x.j.error || 'Failed'; return; }
+          msg.textContent = 'Email connected: ' + x.j.label;
+          reloadAccounts();
+        })
+        .catch(function () { msg.textContent = 'Network error, try again.'; });
+    };
+
     // --- One-tap Connect X / WhatsApp Channel / Website ---
     ONE_TAP.forEach(function (o) {
       var b = addBtn(o.btn);
@@ -180,7 +212,6 @@
     relabel();
   }
 
-  // Pinterest label for the platform dropdown / chips if app.js has no entry for it.
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup);
   else setup();
 })();
