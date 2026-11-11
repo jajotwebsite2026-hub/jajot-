@@ -10,6 +10,7 @@ const linkedin = require('./linkedin');
 const telegram = require('./telegram');
 const threads = require('./threads');
 const website = require('./website');
+const googlebusiness = require('./googlebusiness');
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, 'uploads');
 
@@ -23,6 +24,7 @@ const LIMITS = {
   telegram: 4096,
   threads: 500,
   website: 5000,
+  googlebusiness: 1500,
 };
 
 const PLATFORMS = Object.keys(LIMITS);
@@ -34,7 +36,7 @@ const NEEDS_MEDIA = {
 
 // These platforms only work through the "Connect ... (real)" buttons.
 // (Instagram and Facebook profile added by hand are manual-share mode, see adapter below.)
-const CONNECT_ONLY = ['youtube', 'linkedin', 'threads'];
+const CONNECT_ONLY = ['youtube', 'linkedin', 'threads', 'googlebusiness'];
 
 function validate(platform, caption, mediaPath, mediaType) {
   if (!PLATFORMS.includes(platform)) return `Unknown platform: ${platform}`;
@@ -70,7 +72,7 @@ for (const p of PLATFORMS) {
         if (/^https?:\/\//.test(h)) return { url: h };
         return { url: `https://wa.me/?${new URLSearchParams({ text: args.caption || '' })}` };
       }
-      // Website: posts straight to the site's own /api/posts (key lives in server Variables, not in the database).
+      // Website: posts straight to the site's own /api/posts or WordPress (keys live in server Variables, not in the database).
       if (p === 'website') {
         const mediaUrl = args.mediaPath ? `${instagram.publicBase()}/pub/${args.mediaPath}` : null;
         return website.publish({ ...args, mediaUrl });
@@ -89,7 +91,7 @@ for (const p of PLATFORMS) {
         return { url: 'https://www.facebook.com/' };
       }
       if (args.account.mode === 'demo') {
-        // A hand-added YouTube/LinkedIn/Threads account is NOT connected. Never fake a successful post.
+        // A hand-added YouTube/LinkedIn/Threads/Google Business account is NOT connected. Never fake a successful post.
         if (CONNECT_ONLY.includes(p)) {
           throw new Error(`This ${p} account is not connected. Remove it and use the "Connect ${p}" button in the Accounts tab.`);
         }
@@ -106,6 +108,10 @@ for (const p of PLATFORMS) {
       if (p === 'threads' && args.account.mode === 'live') {
         const mediaUrl = args.mediaPath ? `${instagram.publicBase()}/pub/${args.mediaPath}` : null;
         return threads.publish({ ...args, mediaUrl });
+      }
+      if (p === 'googlebusiness' && args.account.mode === 'live') {
+        const mediaUrl = args.mediaPath ? `${instagram.publicBase()}/pub/${args.mediaPath}` : null;
+        return googlebusiness.publish({ ...args, mediaUrl });
       }
       if (p === 'youtube' && args.account.mode === 'live') {
         return youtube.publish({ ...args, filePath: path.join(UPLOAD_DIR, args.mediaPath || '') });
