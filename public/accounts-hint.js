@@ -1,4 +1,4 @@
-// Accounts tab helper: Connect Telegram (one tap), Connect Threads, one-tap Connect X / WhatsApp Channel / Website,
+// Accounts tab helper: Connect Telegram (one tap), Connect Threads, Connect Google Business, one-tap Connect X / WhatsApp Channel / Website,
 // all in the same blue row as the other Connect buttons.
 // Also a hint line and clear badges instead of "demo".
 (function () {
@@ -26,6 +26,10 @@
     threads: {
       text: 'Threads: use the Connect Threads button (automatic posting).',
       ph: '@threads_username',
+    },
+    googlebusiness: {
+      text: 'Google Business: use the Connect Google Business button. Posts go to your Google Maps / Search listing as an Update (text + photo, no video).',
+      ph: '',
     },
     website: {
       text: 'Website: tap Connect Website. Posts go straight to your site Updates page (first line = title, rest = text, image/video attached).',
@@ -131,6 +135,10 @@
     // --- Connect Threads (real OAuth) ---
     var thBtn = addBtn('Connect Threads');
     thBtn.onclick = function () { window.location.href = '/auth/threads/start'; };
+
+    // --- Connect Google Business (real OAuth) ---
+    var gbBtn = addBtn('Connect Google Business');
+    gbBtn.onclick = function () { window.location.href = '/auth/googlebusiness/start'; };
 
     // --- One-tap Connect X / WhatsApp Channel / Website ---
     ONE_TAP.forEach(function (o) {
