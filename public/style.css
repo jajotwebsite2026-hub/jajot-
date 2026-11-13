@@ -1,41 +1,55 @@
 @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap');
 
-:root {
-  --bg: #fdf2f8;
-  --bg2: #ede9fe;
-  --bg3: #dbf4ee;
+/* ---------- Themes (default = Candy). Picked with the 🎨 button, saved in the browser. ---------- */
+:root, :root[data-theme="candy"] {
+  --bg: #fdf2f8; --bg2: #ede9fe; --bg3: #dbf4ee;
   --card: rgba(255, 255, 255, 0.92);
-  --text: #2d2440;
-  --muted: #7a6f92;
-  --line: #eadff5;
-  --accent: #8b5cf6;
-  --accent2: #ec4899;
-  --accent-text: #ffffff;
-  --ok: #15803d;
-  --bad: #be123c;
-  --warn: #b45309;
-  --shadow: 0 8px 24px rgba(139, 92, 246, 0.12);
-  --tile-opacity: 0.16;
+  --text: #2d2440; --muted: #7a6f92; --line: #eadff5;
+  --accent: #8b5cf6; --accent2: #ec4899; --accent-text: #ffffff;
+  --glow: rgba(139, 92, 246, 0.14);
+  --ok: #15803d; --bad: #be123c; --warn: #b45309;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #1a1228;
-    --bg2: #20153a;
-    --bg3: #13262b;
-    --card: rgba(36, 27, 56, 0.92);
-    --text: #f1eaff;
-    --muted: #b3a6cf;
-    --line: #3a2d57;
-    --accent: #a78bfa;
-    --accent2: #f472b6;
-    --accent-text: #1a1228;
-    --ok: #4ade80;
-    --bad: #fb7185;
-    --warn: #fbbf24;
-    --shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-    --tile-opacity: 0.1;
-  }
+:root[data-theme="ocean"] {
+  --bg: #e0f7ff; --bg2: #d6e8ff; --bg3: #d3fbf1;
+  --card: rgba(255, 255, 255, 0.92);
+  --text: #0c2a43; --muted: #4f7391; --line: #cfe6f5;
+  --accent: #0ea5e9; --accent2: #14b8a6; --accent-text: #ffffff;
+  --glow: rgba(14, 165, 233, 0.16);
+  --ok: #15803d; --bad: #be123c; --warn: #b45309;
 }
+:root[data-theme="forest"] {
+  --bg: #ecfce5; --bg2: #e3f6d8; --bg3: #fdf6d3;
+  --card: rgba(255, 255, 255, 0.92);
+  --text: #1f3a24; --muted: #5f7c5f; --line: #d6ecc8;
+  --accent: #16a34a; --accent2: #ca8a04; --accent-text: #ffffff;
+  --glow: rgba(22, 163, 74, 0.16);
+  --ok: #15803d; --bad: #be123c; --warn: #b45309;
+}
+:root[data-theme="sunset"] {
+  --bg: #fff1e6; --bg2: #ffe0e0; --bg3: #fdeaf6;
+  --card: rgba(255, 255, 255, 0.92);
+  --text: #3b1f1f; --muted: #8a6a62; --line: #f6d9cc;
+  --accent: #f97316; --accent2: #e11d48; --accent-text: #ffffff;
+  --glow: rgba(249, 115, 22, 0.18);
+  --ok: #15803d; --bad: #be123c; --warn: #b45309;
+}
+:root[data-theme="sweet"] {
+  --bg: #fff7d6; --bg2: #ffe4ef; --bg3: #e6f7ff;
+  --card: rgba(255, 255, 255, 0.93);
+  --text: #4a2a3a; --muted: #94707f; --line: #f9dbe6;
+  --accent: #ec4899; --accent2: #f59e0b; --accent-text: #ffffff;
+  --glow: rgba(236, 72, 153, 0.16);
+  --ok: #15803d; --bad: #be123c; --warn: #b45309;
+}
+:root[data-theme="night"] {
+  --bg: #1a1228; --bg2: #20153a; --bg3: #10233a;
+  --card: rgba(36, 27, 56, 0.92);
+  --text: #f1eaff; --muted: #b3a6cf; --line: #3a2d57;
+  --accent: #a78bfa; --accent2: #38bdf8; --accent-text: #170f26;
+  --glow: rgba(0, 0, 0, 0.35);
+  --ok: #4ade80; --bad: #fb7185; --warn: #fbbf24;
+}
+
 * { box-sizing: border-box; }
 body {
   margin: 0;
@@ -44,18 +58,39 @@ body {
   color: var(--text);
   background: linear-gradient(135deg, var(--bg) 0%, var(--bg2) 50%, var(--bg3) 100%) fixed;
   min-height: 100vh;
+  transition: background .4s, color .3s;
 }
-/* Sticker pattern behind everything (emoji tile, very light) */
-body::before {
-  content: '';
+
+/* ---------- Live wallpaper: little emoji float up and sway (built by theme.js) ---------- */
+#wallpaper {
   position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  opacity: var(--tile-opacity);
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><text x='14' y='46' font-size='34'>%F0%9F%8C%B8</text><text x='128' y='80' font-size='30'>%E2%9C%A8</text><text x='60' y='150' font-size='32'>%F0%9F%92%8C</text><text x='160' y='190' font-size='34'>%F0%9F%93%A3</text><text x='10' y='206' font-size='28'>%E2%AD%90</text><text x='118' y='140' font-size='28'>%E2%98%81%EF%B8%8F</text><text x='176' y='30' font-size='26'>%F0%9F%A6%8B</text></svg>");
-  background-size: 220px 220px;
+  overflow: hidden;
 }
+#wallpaper span {
+  position: absolute;
+  bottom: -12vh;
+  line-height: 1;
+  will-change: transform;
+  animation-name: floatUp, sway;
+  animation-timing-function: linear, ease-in-out;
+  animation-iteration-count: infinite, infinite;
+  animation-direction: normal, alternate;
+}
+@keyframes floatUp {
+  from { transform: translateY(0) rotate(0deg); }
+  to   { transform: translateY(-125vh) rotate(25deg); }
+}
+@keyframes sway {
+  from { margin-left: -18px; }
+  to   { margin-left: 18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #wallpaper span { animation: none; bottom: auto; top: calc(var(--i, 1) * 7%); }
+}
+
 .hidden { display: none !important; }
 .center { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px; }
 .card {
@@ -64,7 +99,7 @@ body::before {
   border-radius: 22px;
   padding: 22px;
   margin-bottom: 18px;
-  box-shadow: var(--shadow);
+  box-shadow: 0 8px 24px var(--glow);
   backdrop-filter: blur(6px);
 }
 .card.narrow { width: 100%; max-width: 380px; text-align: center; }
@@ -95,7 +130,7 @@ header {
   padding: 10px 18px;
   background: var(--card);
   border-bottom: 1px solid var(--line);
-  box-shadow: 0 4px 16px rgba(139, 92, 246, 0.1);
+  box-shadow: 0 4px 16px var(--glow);
   backdrop-filter: blur(8px);
   position: sticky; top: 0; z-index: 5;
 }
@@ -124,7 +159,7 @@ input, textarea, select { width: 100%; margin-bottom: 8px; }
 input:focus, textarea:focus, select:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.22);
+  box-shadow: 0 0 0 3px var(--glow);
 }
 .row input, .row select { width: auto; flex: 1; min-width: 120px; margin-bottom: 0; }
 textarea { resize: vertical; }
@@ -139,9 +174,9 @@ button.primary {
   color: var(--accent-text);
   border-color: transparent;
   font-weight: 700;
-  box-shadow: 0 4px 12px rgba(236, 72, 153, 0.25);
+  box-shadow: 0 4px 12px var(--glow);
 }
-button.primary:hover { border-color: transparent; box-shadow: 0 6px 16px rgba(236, 72, 153, 0.35); }
+button.primary:hover { border-color: transparent; box-shadow: 0 6px 16px var(--glow); }
 #c-send::before { content: '\1F4E4  '; }
 button.nav.active, button.tab.active {
   background: linear-gradient(90deg, var(--accent), var(--accent2));
@@ -159,7 +194,7 @@ button.danger { color: var(--bad); }
   background: var(--card);
   transition: transform .1s, box-shadow .15s;
 }
-.chip:hover { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(139, 92, 246, 0.18); }
+.chip:hover { transform: translateY(-1px); box-shadow: 0 4px 10px var(--glow); }
 .chip input { display: none; }
 .chip.on {
   background: linear-gradient(90deg, var(--accent), var(--accent2));
@@ -195,3 +230,29 @@ a { color: var(--accent); }
 }
 .chip::before { content: '\2610  '; }
 .chip.on::before { content: '\2611  '; }
+
+/* ---------- Theme picker ---------- */
+#theme-btn {
+  position: fixed; right: 16px; bottom: 16px; z-index: 50;
+  width: 48px; height: 48px; padding: 0; font-size: 22px; line-height: 1;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border: 0; box-shadow: 0 6px 18px var(--glow);
+}
+#theme-btn:hover { transform: scale(1.08) rotate(-8deg); }
+#theme-panel {
+  position: fixed; right: 16px; bottom: 74px; z-index: 50;
+  width: 250px; padding: 14px;
+  background: var(--card); border: 1px solid var(--line); border-radius: 20px;
+  box-shadow: 0 10px 30px var(--glow); backdrop-filter: blur(10px);
+}
+#theme-panel .th-title { font-weight: 700; margin-bottom: 8px; }
+#theme-panel .th-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+#theme-panel .th-grid button { display: flex; align-items: center; gap: 6px; padding: 7px 10px; font-size: 14px; }
+#theme-panel .th-grid button.on {
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  color: var(--accent-text); border-color: transparent;
+}
+#theme-panel .th-ic { font-size: 18px; }
+#theme-panel .th-anim { display: flex; align-items: center; gap: 6px; margin: 12px 0 0; font-weight: 500; font-size: 13px; }
+#theme-panel .th-anim input { margin: 0; }
